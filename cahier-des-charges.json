@@ -100,13 +100,14 @@
       {
         "id": "timer",
         "nom": "Timer plein écran",
-        "description": "Compte à rebours, anneau circulaire, presets Lafay, pause/reprise, reset, +10 s, micro-pause +5 s.",
+        "description": "Onglets Simple / Intervalles / Mes séances ; presets Lafay ; séances personnalisées persistées dans Supabase (table timer_saved_workouts, RLS). Fallback localStorage si variables Supabase absentes.",
         "routes": ["/timer"],
         "exigences": [
           "Presets 25, 45, 60, 90, 120, 150, 180 secondes (ordre fixe)",
-          "Minuteur stable ; reduced-motion"
+          "Minuteur stable ; reduced-motion",
+          "Mes séances : sync cloud utilisateur (migration one-shot depuis localStorage si cloud vide)"
         ],
-        "etat_implementation": "implemente_v13_presets_7_vibration_alertes",
+        "etat_implementation": "implemente_v151_timer_supabase_mes_seances",
         "alignement_seance": "Aligné sur la séance : alertes 5–1 s (son + vibration) si préférences activées"
       },
       {
@@ -237,7 +238,8 @@
       "supabase/migrations/0008_session_journal.sql",
       "supabase/migrations/0009_seed_training_catalog_conforme.sql",
       "supabase/migrations/0010_fix_rest_times_conforme.sql",
-      "supabase/migrations/0011_remove_demo_programs.sql"
+      "supabase/migrations/0011_remove_demo_programs.sql",
+      "supabase/migrations/0012_timer_saved_workouts.sql"
     ],
     "extensions_prevues": [],
     "tables_principales": [
@@ -260,7 +262,8 @@
       { "nom": "training_level_session_exercises", "role": "Exercices condensés de chaque séance (repos, reps, tempo)" },
       { "nom": "user_level_progress", "role": "Suivi utilisateur par niveau (date début, activité, indicateurs clés)" },
       { "nom": "user_level_transitions", "role": "Historique des passages de niveau et raison" },
-      { "nom": "session_journal", "role": "Journal post-séance (RPE, énergie, sommeil, douleurs, notes)" }
+      { "nom": "session_journal", "role": "Journal post-séance (RPE, énergie, sommeil, douleurs, notes)" },
+      { "nom": "timer_saved_workouts", "role": "Séances chrono personnalisées (config JSON) par utilisateur" }
     ],
     "vues": [
       { "nom": "v_workout_journal", "role": "Séances terminées agrégées" },
@@ -300,6 +303,7 @@
       "pages": "src/pages/*.tsx",
       "session_components": "src/components/session/*.tsx",
       "session_hook": "src/hooks/useWorkoutSession.ts",
+      "timer_mes_seances": "src/lib/timerWorkoutRemote.ts + src/hooks/useTimerWorkouts.ts",
       "styles": "src/styles/index.css"
     },
     "environnements": {

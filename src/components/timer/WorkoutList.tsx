@@ -5,7 +5,10 @@ import { formatRest } from '../../utils/formatRest'
 
 export type WorkoutListProps = {
   workouts: TimerWorkout[]
-  onRemove: (id: string) => void
+  loading?: boolean
+  loadError?: string | null
+  onRefresh?: () => void | Promise<void>
+  onRemove: (id: string) => void | Promise<void>
   onLaunch: (phases: BuiltPhase[]) => void
   onEdit: (w: TimerWorkout) => void
   onNew: () => void
@@ -20,10 +23,26 @@ const TYPE_LBL: Record<TimerWorkout['type'], string> = {
   custom: 'Personnalisé',
 }
 
-export function WorkoutList({ workouts, onRemove, onLaunch, onEdit, onNew }: WorkoutListProps) {
+export function WorkoutList({ workouts, loading, loadError, onRefresh, onRemove, onLaunch, onEdit, onNew }: WorkoutListProps) {
   return (
     <div className="workout-list">
-      {workouts.length === 0 ? (
+      <div className="workout-list-toolbar">
+        {onRefresh ? (
+          <button type="button" className="btn btn-secondary workout-list-refresh" onClick={() => void onRefresh()}>
+            Actualiser
+          </button>
+        ) : null}
+      </div>
+
+      {loadError ? (
+        <p className="msg msg-err" role="alert" style={{ marginBottom: 12 }}>
+          {loadError}
+        </p>
+      ) : null}
+
+      {loading ? (
+        <p className="body muted workout-list-empty">Chargement des séances…</p>
+      ) : workouts.length === 0 ? (
         <p className="workout-list-empty">Aucune séance sauvegardée. Créez votre première !</p>
       ) : (
         <ul className="workout-list-ul">
@@ -50,7 +69,13 @@ export function WorkoutList({ workouts, onRemove, onLaunch, onEdit, onNew }: Wor
                   <button type="button" className="btn-icon sm" aria-label="Modifier" title="Modifier" onClick={() => onEdit(w)}>
                     ✏️
                   </button>
-                  <button type="button" className="btn-icon sm" aria-label="Supprimer" title="Supprimer" onClick={() => onRemove(w.id)}>
+                  <button
+                    type="button"
+                    className="btn-icon sm"
+                    aria-label="Supprimer"
+                    title="Supprimer"
+                    onClick={() => void onRemove(w.id)}
+                  >
                     🗑
                   </button>
                 </div>

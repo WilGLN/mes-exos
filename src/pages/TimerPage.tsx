@@ -29,7 +29,7 @@ export function TimerPage() {
   const [playerKey, setPlayerKey] = useState(0)
   const [editor, setEditor] = useState<TimerWorkout | 'new' | null>(null)
 
-  const { list, save, remove } = useTimerWorkouts()
+  const { list, save, remove, refresh, loading, error } = useTimerWorkouts()
 
   useEffect(() => {
     let cancelled = false
@@ -75,6 +75,9 @@ export function TimerPage() {
         {tab === 'workouts' ? (
           <WorkoutList
             workouts={list}
+            loading={loading}
+            loadError={error}
+            onRefresh={refresh}
             onRemove={remove}
             onLaunch={openPlayer}
             onEdit={(w) => setEditor(w)}
@@ -99,7 +102,7 @@ export function TimerPage() {
           initial={editor === 'new' ? null : editor}
           onClose={() => setEditor(null)}
           onSave={(w) => {
-            save(w)
+            void save(w)
           }}
         />
       ) : null}

@@ -36,3 +36,12 @@ export function deleteTimerWorkout(id: string): TimerWorkout[] {
   saveTimerWorkouts(list)
   return list
 }
+
+/** Supprime la clé local après migration cloud réussie. */
+export function clearTimerWorkoutsLocal(): void {
+  try {
+    localStorage.removeItem(KEY)
+  } catch {
+    /* */
+  }
+}

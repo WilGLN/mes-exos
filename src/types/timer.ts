@@ -1,4 +1,4 @@
-/** Types pour la page Chrono (timer libre + intervalles + localStorage). */
+/** Types pour la page Chrono (timer libre + intervalles + persistance Supabase « Mes séances »). */
 
 export type TimerWorkoutType = 'tabata' | 'hiit' | 'amrap' | 'emom' | 'pyramid' | 'custom'
 

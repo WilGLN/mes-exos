@@ -2734,6 +2734,18 @@ select.input {
   min-height: 120px;
 }
 
+.workout-list-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 10px;
+}
+
+.workout-list-refresh {
+  width: auto;
+  padding: 8px 14px;
+  font-size: 13px;
+}
+
 .workout-list-empty {
   font-size: 14px;
   color: var(--t2);
