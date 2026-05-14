@@ -1,0 +1,511 @@
+{
+  "meta": {
+    "titre": "Lafay Tracker — Spécification UX & design system (mobile-first)",
+    "version": "1.0.0",
+    "cible_device_reference": "iPhone 12 et suivants (390×844 pt logiques, encoche / Dynamic Island, safe areas)",
+    "priorite_visuelle": "mode_sombre",
+    "principes_ux": [
+      "Usage à une main : zone d’action basse, CTA principaux dans le tiers inférieur de l’écran",
+      "Lisibilité sous effort : contraste élevé, hiérarchie typographique forte, peu de texte dense sur Séance et Timer",
+      "Outil de terrain, pas tableau de bord SaaS : surfaces mates, une accentuation par écran, pas de illustrations stock",
+      "Feedback immédiat : états chargement / succès / erreur courts et non intrusifs",
+      "Navigation basse fixe (5+1 ou 6 slots) + accès Paramètres en coin supérieur droit"
+    ]
+  },
+  "design_system": {
+    "philosophie": "Sobre, sportif, compact, premium — typographie géométrique humaniste + chiffres monospaces pour reps et temps.",
+    "couleurs": {
+      "fond_niveaux": {
+        "canvas": "#050506",
+        "surface_0": "#0B0B0D",
+        "surface_1": "#121214",
+        "surface_2": "#1A1A1E",
+        "surface_elevated": "#222228"
+      },
+      "texte": {
+        "primary": "#F2F1EC",
+        "secondary": "#A9A8A0",
+        "muted": "#6E6E76",
+        "inverse_sur_accent": "#0A0A0A"
+      },
+      "accent": {
+        "primary": "#D8FF3C",
+        "primary_hover": "#E6FF6A",
+        "primary_muted": "rgba(216,255,60,0.14)",
+        "ring_focus": "rgba(216,255,60,0.45)"
+      },
+      "semantique": {
+        "success": "#3FD98A",
+        "warning": "#FFB547",
+        "danger": "#FF5C5C",
+        "info": "#5CB8FF"
+      },
+      "bordures": {
+        "subtle": "rgba(255,255,255,0.06)",
+        "default": "rgba(255,255,255,0.10)",
+        "strong": "rgba(255,255,255,0.16)"
+      }
+    },
+    "typographie": {
+      "familles": {
+        "ui": "Inter, SF Pro Text, system-ui, sans-serif",
+        "chiffres": "SF Mono, ui-monospace, Menlo, monospace"
+      },
+      "echelles_rem": {
+        "display_timer": "4.25rem",
+        "titre_ecran": "1.375rem",
+        "sous_titre": "0.9375rem",
+        "corps": "0.9375rem",
+        "caption": "0.75rem",
+        "overline": "0.625rem"
+      },
+      "regles_effort": [
+        "Sur Séance et Timer : corps ≥ 15px, ratio de contraste ≥ 7:1 sur texte critique",
+        "Chiffres (reps, secondes) toujours en monospace, tracking légèrement resserré"
+      ]
+    },
+    "espacements": {
+      "unite_base_px": 4,
+      "gouttiere_ecran": 16,
+      "section_gap": 20,
+      "carte_padding": 16,
+      "entre_cta_verticaux": 12
+    },
+    "rayons": {
+      "chip": 10,
+      "bouton": 14,
+      "carte": 18,
+      "sheet": 22,
+      "plein_ecran_modal": 0
+    },
+    "elevation": {
+      "nav_bar": "0 -4px 24px rgba(0,0,0,0.45)",
+      "carte": "0 1px 0 rgba(255,255,255,0.04) inset"
+    },
+    "zones_tactiles": {
+      "minimum_pt": 48,
+      "cta_principal_hauteur_min_px": 56,
+      "hit_slop_px": 8
+    },
+    "motion": {
+      "duree_courte_ms": 120,
+      "duree_standard_ms": 200,
+      "courbe": "cubic-bezier(0.2, 0.9, 0.2, 1)",
+      "reduced_motion": "respecter prefers-reduced-motion pour anneau timer et transitions"
+    },
+    "iconographie": {
+      "style": "Ligne 2px, coins légèrement arrondis, pas d’emoji comme seule icône de navigation",
+      "note": "Réserver pictos simples (play, horloge, liste, graph) — emoji optionnel uniquement en décoration secondaire"
+    }
+  },
+  "navigation": {
+    "modele": "bottom_navigation_principale + stack_modal_pour_timer + routes_secondaires",
+    "structure_recommandee": {
+      "next_app_router": {
+        "groupe_auth": "(auth)/login, (auth)/register",
+        "groupe_app": "(app)/layout avec BottomNav",
+        "routes": [
+          { "path": "/", "ecran": "Accueil", "fichier": "app/(app)/page.tsx" },
+          { "path": "/programs", "ecran": "Liste des programmes", "fichier": "app/(app)/programs/page.tsx" },
+          { "path": "/session/[workoutId]", "ecran": "Séance en cours", "fichier": "app/(app)/session/[workoutId]/page.tsx" },
+          { "path": "/session/[workoutId]/timer", "ecran": "Timer plein écran", "fichier": "app/(app)/session/[workoutId]/timer/page.tsx" },
+          { "path": "/session/[workoutId]/complete", "ecran": "Fin de séance", "fichier": "app/(app)/session/[workoutId]/complete/page.tsx" },
+          { "path": "/journal", "ecran": "Journal", "fichier": "app/(app)/journal/page.tsx" },
+          { "path": "/history", "ecran": "Historique", "fichier": "app/(app)/history/page.tsx" },
+          { "path": "/stats", "ecran": "Statistiques", "fichier": "app/(app)/stats/page.tsx" },
+          { "path": "/settings", "ecran": "Paramètres", "fichier": "app/(app)/settings/page.tsx" }
+        ]
+      },
+      "react_spa_equivalent": {
+        "fichier_routes": "src/App.tsx",
+        "remarque": "Même arbre ; Timer en route dédiée ou overlay full viewport avec ?fullscreen=1"
+      }
+    },
+    "bottom_nav": {
+      "slots": [
+        { "id": "home", "label": "Accueil", "route": "/", "icone": "home" },
+        { "id": "programs", "label": "Programmes", "route": "/programs", "icone": "layers" },
+        { "id": "journal", "label": "Journal", "route": "/journal", "icone": "notebook" },
+        { "id": "history", "label": "Historique", "route": "/history", "icone": "clock" },
+        { "id": "stats", "label": "Stats", "route": "/stats", "icone": "trending" }
+      ],
+      "hauteur_zone_px": 64,
+      "safe_area": "padding-bottom: env(safe-area-inset-bottom)"
+    },
+    "header_contextuel": {
+      "gauche": "Retour (flèche) ou fermeture selon stack",
+      "centre": "Titre court (1 ligne, ellipses)",
+      "droite": "Paramètres (engrenage) ou menu contextuel séance (⋯)"
+    },
+    "flows_cles": [
+      {
+        "nom": "Reprise rapide",
+        "etapes": ["Accueil → carte « Reprendre » → Séance en cours (workout existant in_progress)"]
+      },
+      {
+        "nom": "Nouvelle séance",
+        "etapes": ["Accueil ou Programmes → choix gabarit → start RPC → /session/[id]"]
+      },
+      {
+        "nom": "Repos",
+        "etapes": ["Séance → Valider série → Timer plein écran (push) ou bottom sheet timer selon préférence ; presets 25–180s"]
+      },
+      {
+        "nom": "Clôture",
+        "etapes": ["Dernière série validée ou bouton Terminer → Fin de séance (RPE + journal) → Historique mis à jour"]
+      }
+    ]
+  },
+  "bibliotheque_composants": {
+    "description": "Découpage React ; préfixe `Lf` (Lafay) pour éviter collisions. Préférer composition légère plutôt que gros monolithes.",
+    "composants": [
+      {
+        "nom": "LfAppShell",
+        "role": "Layout colonne : SafeAreaTop, scroll main, BottomNav, toaster",
+        "fichiers_suggeres": ["components/layout/LfAppShell.tsx"],
+        "props": ["children", "bottomNavSlot", "headerSlot?"]
+      },
+      {
+        "nom": "LfScreenHeader",
+        "role": "Titre + actions ; hauteur fixe 48–56px",
+        "fichiers_suggeres": ["components/layout/LfScreenHeader.tsx"],
+        "props": ["title", "onBack?", "rightAction?"]
+      },
+      {
+        "nom": "LfBottomNav",
+        "role": "5 onglets + état actif ; hit area 48px min",
+        "fichiers_suggeres": ["components/nav/LfBottomNav.tsx"],
+        "props": ["items", "activeId", "onChange"]
+      },
+      {
+        "nom": "LfPrimaryButton",
+        "role": "CTA pleine largeur, 56px min, états loading/disabled",
+        "fichiers_suggeres": ["components/ui/LfPrimaryButton.tsx"],
+        "props": ["children", "onClick", "loading?", "variant?: primary | danger"]
+      },
+      {
+        "nom": "LfSecondaryButton",
+        "role": "Contour discret, même hauteur que primaire pour paires Passer / Valider",
+        "fichiers_suggeres": ["components/ui/LfSecondaryButton.tsx"]
+      },
+      {
+        "nom": "LfIconButton",
+        "role": "48×48 zone tactile, fond surface_2",
+        "fichiers_suggeres": ["components/ui/LfIconButton.tsx"],
+        "props": ["icon", "ariaLabel", "onClick"]
+      },
+      {
+        "nom": "LfCard",
+        "role": "Surface avec bordure subtile ; pas d’ombre portée lourde",
+        "fichiers_suggeres": ["components/ui/LfCard.tsx"],
+        "props": ["children", "padding?", "onClick?"]
+      },
+      {
+        "nom": "LfStatPill",
+        "role": "Valeur grande + label overline (ex. séries / reps)",
+        "fichiers_suggeres": ["components/data/LfStatPill.tsx"],
+        "props": ["label", "value", "suffix?"]
+      },
+      {
+        "nom": "LfExerciseBlock",
+        "role": "Bloc exercice : nom, variante, grille séries",
+        "fichiers_suggeres": ["components/session/LfExerciseBlock.tsx"],
+        "props": ["exercise", "sets", "currentSetIndex", "onSetPress", "onValidateSet"]
+      },
+      {
+        "nom": "LfSetChip",
+        "role": "Une série : index, reps saisies ou « — », état done / current / idle",
+        "fichiers_suggeres": ["components/session/LfSetChip.tsx"]
+      },
+      {
+        "nom": "LfLastPerformanceBar",
+        "role": "« Dernière fois » en monospace sur une ligne",
+        "fichiers_suggeres": ["components/session/LfLastPerformanceBar.tsx"],
+        "props": ["repsPerSet: number[]"]
+      },
+      {
+        "nom": "LfRestTimerSheet",
+        "role": "Sheet ou plein écran : anneau, presets, +10s, pause",
+        "fichiers_suggeres": ["components/timer/LfRestTimerSheet.tsx", "components/timer/LfTimerRing.tsx"]
+      },
+      {
+        "nom": "LfPresetChips",
+        "role": "Rangée scrollable horizontalement si besoin : 25, 45, 60, 90, 120, 180 s",
+        "fichiers_suggeres": ["components/timer/LfPresetChips.tsx"],
+        "props": ["valuesSec", "activeSec", "onSelect"]
+      },
+      {
+        "nom": "LfSegmentedControl",
+        "role": "Filtres historique (7 jours, Mois, Exercice…)",
+        "fichiers_suggeres": ["components/filters/LfSegmentedControl.tsx"]
+      },
+      {
+        "nom": "LfJournalEntryForm",
+        "role": "Champs ressenti, énergie, sommeil, douleur, note libre",
+        "fichiers_suggeres": ["components/journal/LfJournalEntryForm.tsx"]
+      },
+      {
+        "nom": "LfListRow",
+        "role": "Ligne historique / journal : titre, méta, chevron ou RPE",
+        "fichiers_suggeres": ["components/lists/LfListRow.tsx"]
+      },
+      {
+        "nom": "LfEmptyState",
+        "role": "Illustration minimale (trait géométrique) + 1 phrase + CTA",
+        "fichiers_suggeres": ["components/feedback/LfEmptyState.tsx"]
+      },
+      {
+        "nom": "LfToast",
+        "role": "Retours courts (série enregistrée, erreur réseau)",
+        "fichiers_suggeres": ["components/feedback/LfToast.tsx"]
+      },
+      {
+        "nom": "LfBottomSheet",
+        "role": "Panneau modal bas (journal, confirmations légères)",
+        "fichiers_suggeres": ["components/overlays/LfBottomSheet.tsx"]
+      },
+      {
+        "nom": "LfSwitch",
+        "role": "Interrupteur Paramètres (son, vibration)",
+        "fichiers_suggeres": ["components/ui/LfSwitch.tsx"]
+      },
+      {
+        "nom": "LfChartBars",
+        "role": "Graphique barres minimal pour Stats (sans lib chart lourde en V1)",
+        "fichiers_suggeres": ["components/charts/LfChartBars.tsx"]
+      }
+    ]
+  },
+  "ecrans": [
+    {
+      "id": "accueil",
+      "route": "/",
+      "objectif": "Reprise en 1 tap + vision de la semaine + accès programmes",
+      "zones": [
+        { "zone": "header", "contenu": "Salutation + accès Paramètres (icône)" },
+        { "zone": "hero_reprise", "contenu": "Carte « Reprendre » si workout in_progress ; sinon « Démarrer » sur dernière séance fréquente" },
+        { "zone": "stats_rapides", "contenu": "3 LfStatPill : séries semaine, reps semaine, séances / objectif" },
+        { "zone": "mini_calendrier", "contenu": "7 barres compactes L/M/M/J/V/S/D" },
+        { "zone": "raccourci_programmes", "contenu": "Lien « Voir tous les programmes »" }
+      ],
+      "microcopy": {
+        "titre": "Entraînement",
+        "salutation": "Bonjour, {{prenom}}",
+        "reprendre_titre": "Reprendre la séance",
+        "reprendre_sous": "{{titre_seance}} · Exercice {{index}}/{{total}}",
+        "cta_reprendre": "Continuer",
+        "cta_demarrer": "Démarrer une séance",
+        "empty_seance": "Aucune séance en cours",
+        "voir_programmes": "Programmes",
+        "chargement": "Chargement…",
+        "erreur_reseau": "Connexion instable. Réessaie."
+      },
+      "composants": ["LfAppShell", "LfScreenHeader", "LfCard", "LfPrimaryButton", "LfStatPill", "LfBottomNav"]
+    },
+    {
+      "id": "liste_programmes",
+      "route": "/programs",
+      "objectif": "Choisir un programme et un gabarit de séance",
+      "zones": [
+        { "zone": "liste", "contenu": "LfCard par programme : niveau, fréquence, badge Actif" },
+        { "zone": "detail_programme", "contenu": "Liste des gabarits A/B/… avec durée estimée et bouton Commencer" }
+      ],
+      "microcopy": {
+        "titre": "Programmes",
+        "actif": "Actif",
+        "choisir": "Utiliser ce programme",
+        "commencer": "Commencer",
+        "duree_estimee": "~ {{minutes}} min",
+        "vide": "Aucun programme disponible pour le moment."
+      },
+      "composants": ["LfCard", "LfPrimaryButton", "LfSecondaryButton", "LfBottomNav"]
+    },
+    {
+      "id": "seance_en_cours",
+      "route": "/session/[workoutId]",
+      "objectif": "Lecture effort : exercice courant, séries, dernière perf, validation rapide",
+      "zones": [
+        { "zone": "header", "contenu": "Fermer (abandon avec confirmation) · Titre séance · Menu (passer exercice)" },
+        { "zone": "progression", "contenu": "Pastilles ou barre fine d’avancement exercices" },
+        { "zone": "bloc_exercice", "contenu": "LfExerciseBlock + LfLastPerformanceBar" },
+        { "zone": "presets_repos", "contenu": "LfPresetChips réduits (accès rapide avant plein timer)" },
+        { "zone": "actions_bas", "contenu": "LfSecondaryButton « Passer » + LfPrimaryButton « Valider série »" }
+      ],
+      "microcopy": {
+        "serie_en_cours": "Série {{n}}",
+        "valider": "Valider série",
+        "passer_exercice": "Passer l’exercice",
+        "passer_serie": "Passer la série",
+        "derniere_fois": "Dernière fois",
+        "repos": "Repos",
+        "agrandir_timer": "Plein écran",
+        "abandon_titre": "Quitter la séance ?",
+        "abandon_corps": "La progression de cette séance sera enregistrée comme abandonnée.",
+        "abandon_annuler": "Continuer",
+        "abandon_confirmer": "Quitter",
+        "saisie_reps": "Reps",
+        "reps_placeholder": "0"
+      },
+      "composants": ["LfExerciseBlock", "LfSetChip", "LfLastPerformanceBar", "LfPresetChips", "LfPrimaryButton", "LfSecondaryButton", "LfBottomNav_optional_hidden_during_session"]
+    },
+    {
+      "id": "timer_plein_ecran",
+      "route": "/session/[workoutId]/timer",
+      "objectif": "Lisibilité maximale ; contrôle au pouce ; presets",
+      "zones": [
+        { "zone": "header_min", "contenu": "Retour discret + contexte « {{exercice}} · Série {{n}} »" },
+        { "zone": "anneau", "contenu": "LfTimerRing + temps géant monospace" },
+        { "zone": "presets", "contenu": "LfPresetChips : 25, 45, 60, 90, 120, 180 s" },
+        { "zone": "controles", "contenu": "Réinitialiser · Pause / Reprendre (large) · +10 s" },
+        { "zone": "next", "contenu": "Carte fine « Prochaine série »" }
+      ],
+      "microcopy": {
+        "phase_repos": "Repos",
+        "sous_temps": "/ {{total}}",
+        "reset": "Reset",
+        "pause": "Pause",
+        "reprendre": "Reprendre",
+        "plus_10": "+10 s",
+        "prochaine": "Ensuite",
+        "prochaine_serie": "{{exercice}} · Série {{n}}",
+        "cible": "Cible : {{reps}}+ reps"
+      },
+      "presets_secondes": [25, 45, 60, 90, 120, 180],
+      "composants": ["LfTimerRing", "LfPresetChips", "LfPrimaryButton", "LfSecondaryButton", "LfCard"]
+    },
+    {
+      "id": "fin_de_seance",
+      "route": "/session/[workoutId]/complete",
+      "objectif": "Clôture : RPE + saisie journal post-effort puis retour accueil/historique",
+      "zones": [
+        { "zone": "recap", "contenu": "Durée, volume, nombre d’exercices" },
+        { "zone": "rpe", "contenu": "Slider ou stepper 1–10 avec libellé « Effort global »" },
+        { "zone": "journal_resume", "contenu": "Champs ressenti / énergie / sommeil / douleur / note (compact, scroll)" },
+        { "zone": "cta", "contenu": "LfPrimaryButton « Enregistrer et terminer »" }
+      ],
+      "microcopy": {
+        "titre": "Séance terminée",
+        "sous_titre": "Bravo. Note ton ressenti pour le suivi.",
+        "rpe_label": "Effort global (RPE)",
+        "enregistrer": "Enregistrer et terminer",
+        "ignorer_journal": "Plus tard",
+        "duree": "{{minutes}} min",
+        "volume": "{{reps}} reps · {{series}} séries"
+      },
+      "composants": ["LfCard", "LfJournalEntryForm", "LfPrimaryButton", "LfSecondaryButton"]
+    },
+    {
+      "id": "journal",
+      "route": "/journal",
+      "objectif": "Saisie ou complétion du ressenti lié aux séances récentes ; pas seulement liste",
+      "zones": [
+        { "zone": "liste_entrees", "contenu": "LfListRow par jour / séance avec badge si journal manquant" },
+        { "zone": "formulaire", "contenu": "LfJournalEntryForm en sheet au tap sur une ligne" }
+      ],
+      "microcopy": {
+        "titre": "Journal",
+        "sous_titre": "Ressenti et récupération",
+        "ressenti": "Ressenti général",
+        "energie": "Énergie",
+        "sommeil": "Sommeil (nuit précédente)",
+        "douleur": "Douleur / inconfort",
+        "note_libre": "Note libre",
+        "echelle_basse": "Très bas",
+        "echelle_haute": "Très haut",
+        "sans_douleur": "Aucune",
+        "douleur_forte": "Fort",
+        "enregistrer": "Enregistrer",
+        "manquant": "À compléter",
+        "vide": "Rien à noter pour le moment."
+      },
+      "composants": ["LfListRow", "LfJournalEntryForm", "LfBottomSheet"]
+    },
+    {
+      "id": "historique",
+      "route": "/history",
+      "objectif": "Filtrer et ouvrir le détail d’une séance passée (lecture seule + export futur)",
+      "zones": [
+        { "zone": "filtres", "contenu": "LfSegmentedControl : 7 jours · Mois · Exercice · Programme" },
+        { "zone": "liste", "contenu": "LfListRow groupée par jour" }
+      ],
+      "microcopy": {
+        "titre": "Historique",
+        "filtre_7j": "7 jours",
+        "filtre_mois": "Mois",
+        "filtre_exercice": "Exercice",
+        "filtre_programme": "Programme",
+        "repos": "Repos",
+        "en_cours": "En cours",
+        "voir_tout": "Tout l’historique",
+        "vide_filtre": "Aucune séance pour ce filtre."
+      },
+      "composants": ["LfSegmentedControl", "LfListRow", "LfEmptyState"]
+    },
+    {
+      "id": "statistiques",
+      "route": "/stats",
+      "objectif": "Indicateurs simples + un graphique lisible mobile",
+      "zones": [
+        { "zone": "grille_kpis", "contenu": "4 mini-cartes : semaine, volume, durée moy., assiduité" },
+        { "zone": "graph", "contenu": "Barres ou courbe pour un exercice sélectionné" },
+        { "zone": "records", "contenu": "Liste records avec delta" }
+      ],
+      "microcopy": {
+        "titre": "Progression",
+        "cette_semaine": "Cette semaine",
+        "volume": "Volume",
+        "duree_moy": "Durée moy.",
+        "assiduite": "Assiduité",
+        "records": "Records perso",
+        "seances": "séances",
+        "reps_mois": "reps ce mois",
+        "par_seance": "par séance",
+        "sur_30j": "sur 30 jours"
+      },
+      "composants": ["LfCard", "LfStatPill", "LfChartBars"]
+    },
+    {
+      "id": "parametres",
+      "route": "/settings",
+      "objectif": "Compte, préférences d’entraînement, confidentialité, à propos",
+      "zones": [
+        { "zone": "compte", "contenu": "Email, déconnexion" },
+        { "zone": "preferences", "contenu": "Unités, son timer, vibration, rappels (futurs)" },
+        { "zone": "donnees", "contenu": "Export (futur), suppression compte (futur)" }
+      ],
+      "microcopy": {
+        "titre": "Réglages",
+        "compte": "Compte",
+        "deconnexion": "Se déconnecter",
+        "preferences": "Entraînement",
+        "timer_son": "Son du timer",
+        "timer_vibration": "Vibration à la fin du repos",
+        "theme": "Thème",
+        "theme_sombre": "Sombre",
+        "a_propos": "À propos",
+        "version": "Version {{version}}"
+      },
+      "composants": ["LfListRow", "LfSwitch", "LfPrimaryButton"]
+    }
+  ],
+  "donnees_journal_post_seance": {
+    "champs": [
+      { "id": "mood", "type": "echelle_1_5", "label": "Ressenti" },
+      { "id": "energy", "type": "echelle_1_5", "label": "Énergie" },
+      { "id": "sleep_quality", "type": "echelle_1_5", "label": "Sommeil" },
+      { "id": "pain", "type": "echelle_0_5", "label": "Douleur" },
+      { "id": "note", "type": "texte_court", "max_length": 500, "label": "Note libre" }
+    ],
+    "remarque_implementation": "À mapper sur table dédiée (ex. session_journal) liée à workouts.id ; non présente dans les migrations actuelles — extension schéma recommandée."
+  },
+  "accessibilite": {
+    "wcag_cible": "AA minimum sur textes ; objectif AAA sur écrans effort pour contraste",
+    "focus": "Anneau focus visible (accent ring) sur boutons et presets",
+    "tailles_dynamiques": "Respecter text-size préférences OS si possible (rem + clamp)"
+  },
+  "tests_ux_suggestions": [
+    "Thumb zone : tous les CTA critiques dans le tiers bas sur iPhone 12–15",
+    "Test sueur / luminosité extérieure : lisibilité timer plein soleil (contraste)",
+    "Test une main droite et gauche (retour en haut à gauche peut être gênant — prévoir swipe back iOS où pertinent)"
+  ]
+}

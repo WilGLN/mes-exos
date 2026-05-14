@@ -1,0 +1,363 @@
+{
+  "meta": {
+    "nom_produit": "Lafay Tracker",
+    "version_document": "1.4.3",
+    "date_generation": "2026-05-14",
+    "langue": "fr-FR",
+    "description_courte": "Web app mobile-first (iPhone 12+, affinage iPhone 14+) pour le suivi d'entraînement type méthode Lafay : programmes, séance, timer de repos inline, enregistrement des reps, journal de ressenti, historique filtrable et statistiques — données Supabase, accès sécurisé.",
+    "statut_projet": "en_developpement",
+    "documents_associes": [
+      "design/ux-specification-lafay-tracker.json"
+    ],
+    "note": "Spec UX détaillée (écrans cibles Next/React, composants Lf*, microcopies FR, design system iPhone 12+) : voir documents_associes."
+  },
+  "vision_et_objectifs": {
+    "vision": "Outil d'entraînement sobre et premium : lancer vite une séance, lire l'effort d'un coup d'œil, chronométrer le repos, enregistrer les séries et consigner ressenti + historique pour progresser.",
+    "objectifs_metier": [
+      "Sélection d'un niveau Lafay actif et démarrage de séance depuis le référentiel structuré",
+      "Affichage des performances précédentes à côté de la série en cours",
+      "Flux séance complet série par série (saisie reps, repos auto, transition exercice, clôture)",
+      "Journal post-effort (ressenti, énergie, sommeil, douleur, note libre) distinct de l'historique des séances",
+      "Historique filtrable et statistiques simples",
+      "Confidentialité : RLS Supabase, secrets uniquement en variables d'environnement côté client (clé anon)",
+      "Conformité contenu : résumés originaux de suivi uniquement, jamais substitutifs au livre"
+    ],
+    "objectifs_techniques": [
+      "Stack React 19 + TypeScript + Vite 6 ; React Router 7",
+      "Supabase Auth + Postgres + RPC ; évolution possible Next.js App Router (chemins décrits dans la spec UX)",
+      "Hébergement statique du bundle + API Supabase"
+    ],
+    "contraintes_ux_produit": [
+      "Mobile-first, iPhone 12 et suivants ; usage à une main ; gros boutons",
+      "Lisibilité maximale pendant l'effort ; mode sombre prioritaire",
+      "Navigation basse ; design sportif compact, éviter le rendu « template SaaS »"
+    ]
+  },
+  "personas": [
+    {
+      "id": "pratiquant_debutant",
+      "nom": "Lucas",
+      "besoins": "Programme actif clair, démarrage guidé, validation de séries sans friction",
+      "contraintes": "Smartphone une main, peu de temps entre les séries"
+    },
+    {
+      "id": "pratiquant_avance",
+      "nom": "Athlète régulier",
+      "besoins": "Historique, stats, PR, RPE ; comparer les semaines",
+      "contraintes": "Fiabilité des données ; export éventuel en V2"
+    }
+  ],
+  "perimetre_fonctionnel": {
+    "modules": [
+      {
+        "id": "auth",
+        "nom": "Authentification et accès",
+        "description": "Connexion, inscription, déconnexion ; garde de routes ; page /setup si variables Supabase absentes.",
+        "routes": ["/login", "/register", "/setup"],
+        "exigences": [
+          "Session persistée, refresh token, flow PKCE",
+          "Redirection post-login vers la route demandée (state.from)"
+        ],
+        "etat_implementation": "implemente"
+      },
+      {
+        "id": "accueil",
+        "nom": "Accueil",
+        "description": "Salutation, niveau actif (profiles.active_training_level_id), prochaine séance recommandée, démarrage via RPC start_workout_from_training_session.",
+        "routes": ["/"],
+        "exigences": [
+          "Afficher niveau actif + prochaine séance recommandée",
+          "CTA Démarrer la séance depuis le référentiel niveaux"
+        ],
+        "etat_implementation": "partiellement_branche_training_catalog"
+      },
+      {
+        "id": "liste_programmes",
+        "nom": "Catalogue niveaux",
+        "description": "Parcourir les niveaux Lafay (1-13, 12 bis, 12 ter, entretien), filtrer par type, voir badges fréquence/difficulté et définir un niveau actif. Layout des cartes mobile-first : colonne (texte puis actions pleine largeur) par défaut ; passage en ligne (texte + actions à droite) à partir de ~520px de largeur pour éviter l'écrasement du texte sur fenêtres étroites ou shell centré.",
+        "routes": ["/programs", "/programs/:slug"],
+        "routes_impl_actuelles": ["/programs", "/programs/:slug"],
+        "etat_implementation": "implemente_v14_catalogue_niveaux_responsive_v142"
+      },
+      {
+        "id": "seance",
+        "nom": "Séance en cours",
+        "description": "Orchestration complète : exercice courant, progression des séries, saisie reps en sheet, timer de repos inline visible sur la page pendant la saisie et le repos, décompte sonore sur les 5 dernières secondes (si son activé), vibrations courtes sur 3–2–1 (si vibration activée), blocage explicite de « Série validée » pendant le repos avec action « Ignorer repos », transition inter-exercices avec durée rest_after_exercise_seconds affichée et passage auto à l'exercice suivant à la fin du compte à rebours, abandon, fin de séance.",
+        "routes": ["/session", "/session/:workoutId/complete"],
+        "exigences_cible": [
+          "Persistance série par série dans workout_sets",
+          "Lecture workout_exercises enrichie (config de l'exercice)",
+          "complete_workout, abandon_workout",
+          "Machine d'états locale (set_in_progress, reps_input, resting, exercise_transition, complete)",
+          "Timer de repos avec presets 25, 45, 60, 90, 120, 150, 180 s (écran /timer)",
+          "Injecter repos recommandé depuis training_level_session_exercises",
+          "Afficher note courte en bottom sheet + renvoi livre",
+          "Gérer exercices unilatéraux (droite/gauche)",
+          "Filtrer les placeholders workout_sets (0 reps, non complétés) pour l'affichage progression"
+        ],
+        "etat_implementation": "phase_1_implementee_v142_timer_inline_transition_inter_exercices"
+      },
+      {
+        "id": "timer",
+        "nom": "Timer plein écran",
+        "description": "Compte à rebours, anneau circulaire, presets Lafay, pause/reprise, reset, +10 s, micro-pause +5 s.",
+        "routes": ["/timer"],
+        "exigences": [
+          "Presets 25, 45, 60, 90, 120, 150, 180 secondes (ordre fixe)",
+          "Minuteur stable ; reduced-motion"
+        ],
+        "etat_implementation": "implemente_v13_presets_7_vibration_alertes",
+        "alignement_seance": "Même logique d'alertes que possible en séance : bip 5–1 s, vibration 3–2–1 si préférences activées (voir module séance)"
+      },
+      {
+        "id": "fin_seance",
+        "nom": "Fin de séance",
+        "description": "Récap complet (exercices, séries, reps) + formulaire journal post-effort (RPE, énergie, sommeil, douleurs, note libre).",
+        "routes": ["/session/:workoutId/complete", "/session/complete"],
+        "etat_implementation": "implemente_v141"
+      },
+      {
+        "id": "journal",
+        "nom": "Journal (ressenti)",
+        "description": "Saisie ressenti, énergie, sommeil, douleur, note libre liés aux séances — table dédiée à prévoir (extension schéma).",
+        "routes_cibles_ux": ["/journal"],
+        "routes_impl_actuelles": "Non : l'écran /history est nommé « Journal » dans la nav actuelle (à renommer / scinder)",
+        "etat_implementation": "non_implemente_donnees"
+      },
+      {
+        "id": "historique",
+        "nom": "Historique",
+        "description": "Liste des séances et repos, filtres 7 jours / mois / exercice / programme ; lecture v_workout_journal + rest_days.",
+        "routes": ["/history"],
+        "etat_implementation": "ui_statique"
+      },
+      {
+        "id": "stats",
+        "nom": "Statistiques",
+        "description": "KPIs, graphique par exercice, records personnels ; vues v_weekly_training_stats, personal_records.",
+        "routes": ["/stats"],
+        "etat_implementation": "ui_statique"
+      },
+      {
+        "id": "profil",
+        "nom": "Profil",
+        "description": "Informations personnelles, tests de départ Lafay (A/B/C/A1), mensurations mensuelles, historique et recommandations de programme.",
+        "routes": ["/profile"],
+        "etat_implementation": "implemente_v13"
+      },
+      {
+        "id": "parametres",
+        "nom": "Paramètres",
+        "description": "Préférences minuterie et séance persistées dans profiles.preferences (repos par défaut, son fin, vibration, démarrage auto, auto repos programme, override manuel, affichage critères).",
+        "routes": ["/settings"],
+        "routes_compat": ["/account -> /profile"],
+        "etat_implementation": "implemente_v13"
+      }
+    ],
+    "navigation": {
+      "implementation_actuelle": {
+        "type": "barre_inferieure_7_onglets",
+        "onglets": [
+          { "label": "Accueil", "path": "/" },
+          { "label": "Programmes", "path": "/programs" },
+          { "label": "Séance", "path": "/session" },
+          { "label": "Chrono", "path": "/timer" },
+          { "label": "Historique", "path": "/history" },
+          { "label": "Journal", "path": "/journal" },
+          { "label": "Stats", "path": "/stats" }
+        ],
+        "acces_compte": "Avatar header → /profile ; engrenage header → /settings"
+      },
+      "cible_ux_documentee": {
+        "reference": "design/ux-specification-lafay-tracker.json",
+        "onglets": ["Accueil", "Programmes", "Journal", "Historique", "Stats"],
+        "parametres": "Icône engrenage header → /settings"
+      }
+    }
+  },
+  "exigences_non_fonctionnelles": {
+    "performance": [
+      "Bundle Vite optimisé ; pagination ou limit sur historique long",
+      "Index SQL dédiés (voir migration 0002)"
+    ],
+    "securite": [
+      ".env.local pour VITE_SUPABASE_URL et VITE_SUPABASE_ANON_KEY",
+      "Jamais de service_role côté client",
+      "RLS sur toutes les tables sensibles ; RPC SECURITY INVOKER pour start/complete/abandon/record_personal_best/start_workout_from_training_session",
+      "Le contenu embarqué doit rester un résumé : détails techniques complets renvoyés au livre"
+    ],
+    "disponibilite": [
+      "Hors-ligne complet : hors périmètre V1"
+    ],
+    "accessibilite": [
+      "Aria sur nav et actions critiques ; prefers-reduced-motion",
+      "Zones tactiles ≥ 48 pt (objectif spec UX)"
+    ],
+    "internationalisation": {
+      "langue_v1": "fr",
+      "encodage": "UTF-8"
+    },
+    "responsive": {
+      "reference_device": "iPhone 12+ puis affinage iPhone 14 / 15 / 16 / Plus / Pro Max (portrait et paysage), Dynamic Island / encoche, safe areas",
+      "comportement": "Shell max ~520px centré sur grand écran ; 100dvh ; nav fixe basse. Cartes catalogue (/programs) : layout colonne par défaut pour lisibilité même quand la fenêtre du navigateur est large mais la colonne de contenu reste étroite ; grille 2 colonnes large écran ≥520px.",
+      "developpement": "Pour voir les changements front, utiliser le serveur Vite (npm run dev, port 5174 par défaut) et non un serveur de fichiers statiques seul."
+    }
+  },
+  "experience_utilisateur": {
+    "reference_design": "design/ux-specification-lafay-tracker.json",
+    "charte_actuelle_code": {
+      "theme": "sombre",
+      "polices": ["DM Sans", "DM Mono"],
+      "couleurs_cles": {
+        "fond": "#090909",
+        "accent": "#E8FF47",
+        "texte_principal": "#F0EFE8",
+        "succes": "#3FD97A",
+        "erreur": "#FF4D4D",
+        "avertissement": "#FF9A3C"
+      },
+      "note": "La spec UX propose une palette affinee (accent #D8FF3C, surfaces échelonnées) — convergence progressive possible."
+    },
+    "principes_interaction": [
+      "CTA principal bas de écran sur les flux effort",
+      "Messages d'erreur réseau / Supabase visibles sur les écrans connectés"
+    ]
+  },
+  "donnees_et_modele": {
+    "fournisseur": "Supabase (PostgreSQL)",
+    "migrations_reference": [
+      "supabase/migrations/0001_core_lafay_tracker.sql",
+      "supabase/migrations/0002_indexes_pr_weekly_realtime.sql",
+      "supabase/migrations/0003_rpcs_workflow.sql",
+      "supabase/migrations/0004_body_measurements.sql",
+      "supabase/migrations/0005_entry_tests.sql",
+      "supabase/migrations/0006_training_catalog.sql",
+      "supabase/migrations/0007_seed_training_catalog.sql",
+      "supabase/migrations/0008_session_journal.sql",
+      "supabase/migrations/0009_seed_training_catalog_conforme.sql",
+      "supabase/migrations/0010_fix_rest_times_conforme.sql"
+    ],
+    "extensions_prevues": [],
+    "tables_principales": [
+      { "nom": "profiles", "role": "Profil utilisateur, active_program_id, active_training_level_id, preferences" },
+      { "nom": "exercises", "role": "Catalogue exercices (slug)" },
+      { "nom": "programs", "role": "Programmes publiés" },
+      { "nom": "program_sessions", "role": "Gabarits de séances" },
+      { "nom": "program_session_exercises", "role": "Exercices du gabarit" },
+      { "nom": "workouts", "role": "Séances utilisateur" },
+      { "nom": "workout_exercises", "role": "Snapshot exercices de la séance" },
+      { "nom": "workout_sets", "role": "Séries (reps, repos, completed)" },
+      { "nom": "rest_days", "role": "Jours de repos dans le calendrier" },
+      { "nom": "personal_records", "role": "Records reps par exercice" },
+      { "nom": "weekly_targets", "role": "Objectif séances / semaine (lundi UTC)" },
+      { "nom": "body_measurements", "role": "Mensurations mensuelles et suivi de progression" },
+      { "nom": "entry_tests", "role": "Tests initiaux A/B/C/A1 avec programme recommandé généré" },
+      { "nom": "exercise_library", "role": "Référentiel minimal d'exercices (cues courts, renvoi livre)" },
+      { "nom": "training_levels", "role": "Catalogue des niveaux Lafay et blocs avancés/entretien" },
+      { "nom": "training_level_sessions", "role": "Séances résumées par niveau" },
+      { "nom": "training_level_session_exercises", "role": "Exercices condensés de chaque séance (repos, reps, tempo)" },
+      { "nom": "user_level_progress", "role": "Suivi utilisateur par niveau (date début, activité, indicateurs clés)" },
+      { "nom": "user_level_transitions", "role": "Historique des passages de niveau et raison" },
+      { "nom": "session_journal", "role": "Journal post-séance (RPE, énergie, sommeil, douleurs, notes)" }
+    ],
+    "vues": [
+      { "nom": "v_workout_journal", "role": "Séances terminées agrégées" },
+      { "nom": "v_weekly_training_stats", "role": "Stats hebdomadaires par utilisateur" }
+    ],
+    "fonctions_rpc": [
+      { "nom": "record_personal_best", "role": "Mise à jour PR" },
+      { "nom": "start_workout_from_program_session", "role": "Création workout + lignes depuis gabarit" },
+      { "nom": "complete_workout", "role": "Clôture séance + RPE optionnel" },
+      { "nom": "abandon_workout", "role": "Abandon séance en cours" },
+      { "nom": "set_active_training_level", "role": "Définition du niveau actif utilisateur" },
+      { "nom": "start_workout_from_training_session", "role": "Création workout depuis session du référentiel niveaux" }
+    ],
+    "triggers": [
+      "handle_new_user → insertion profiles",
+      "set_updated_at sur profiles, workouts, weekly_targets, user_level_progress"
+    ]
+  },
+  "architecture_technique": {
+    "client": {
+      "framework": "React 19",
+      "langage": "TypeScript",
+      "build": "Vite 6",
+      "routing": "React Router 7",
+      "etat_auth": "AuthContext + Supabase onAuthStateChange"
+    },
+    "integration_backend": {
+      "sdk": "@supabase/supabase-js",
+      "modules_donnees_catalogue": ["src/lib/catalog.ts", "src/lib/trainingCatalog.ts", "src/lib/workoutSession.ts"]
+    },
+    "structure_code_principale": {
+      "entree": "src/main.tsx",
+      "routes": "src/App.tsx",
+      "auth": "src/context/AuthContext.tsx",
+      "garde_routes": ["src/components/RequireAuth.tsx", "src/components/GuestOnly.tsx"],
+      "layout": "src/components/AppLayout.tsx",
+      "pages": "src/pages/*.tsx",
+      "session_components": "src/components/session/*.tsx",
+      "session_hook": "src/hooks/useWorkoutSession.ts",
+      "styles": "src/styles/index.css"
+    },
+    "environnements": {
+      "developpement": { "commande": "npm run dev", "fichier_secrets": ".env.local" },
+      "production": { "build": "npm run build", "variables": "VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY" }
+    }
+  },
+  "criteres_acceptation_globaux": [
+    "Inscription, connexion, accès aux écrans protégés",
+    "Sans .env : redirection /setup avec consignes",
+    "Isolation des données entre utilisateurs (RLS)",
+    "Catalogue programmes / exercices lisible selon politiques anon/authenticated",
+    "Démarrage d'une séance depuis l'accueil crée un workout cohérent et transmet workoutId à l'écran séance",
+    "Le catalogue niveaux est disponible sur /programs et le détail sur /programs/:slug ; les cartes niveaux restent lisibles (pas d'écrasement texte / boutons)",
+    "Chaque fiche reste courte et inclut un renvoi explicite vers le livre",
+    "En séance, chaque validation de série persiste les reps dans workout_sets",
+    "En séance, le timer de repos reste visible pendant la saisie des reps ; entre deux exercices le timer inter-exercice est visible puis enchaîne sur l'exercice suivant",
+    "La route /session/:workoutId/complete affiche un récap puis enregistre session_journal"
+  ],
+  "hors_perimetre_v1": [
+    "App native store",
+    "Monétisation in-app",
+    "Coach IA",
+    "Export officiel PDF/CSV",
+    "i18n multi-langues",
+    "Sync offline avancée",
+    "Vidéos tutoriels intégrées",
+    "Social et classements globaux"
+  ],
+  "roadmap_suggeree": {
+    "realise_ou_amorce": [
+      "Migrations 0001–0008 + seed catalogue conforme 0009 (schéma core, index, RPC, mensurations, tests, référentiel niveaux, journal séance)",
+      "Catalogue niveaux: /programs + /programs/:slug avec filtres, disclaimer et layout responsive mobile-first des cartes",
+      "Accueil branché sur niveau actif + démarrage séance via start_workout_from_training_session",
+      "Session enrichie : timer inline, repos inter-exercices, alertes son/vibration fin de compte, garde-fous UX validation",
+      "Phase 1 séance: service workoutSession, hook useWorkoutSession, composants session, migration session_journal"
+    ],
+    "phase_1": [
+      "Raffiner la machine d'états séance (correction rétroactive de série, transitions encore plus robustes)",
+      "Persister/normaliser la progression unilatérale avec côté explicite",
+      "Automatiser plus finement la recommandation de prochaine séance"
+    ],
+    "phase_2": [
+      "Reprise workout in_progress sur accueil",
+      "record_personal_best après série ou trigger",
+      "weekly_targets sur accueil ; Realtime optionnel"
+    ],
+    "phase_3": [
+      "Paramètres avancés /settings (thème, notifications, export)",
+      "Notifications, tests E2E, types générés supabase gen types"
+    ]
+  },
+  "glossaire": {
+    "RPE": "Rating of Perceived Exertion (1–10)",
+    "RLS": "Row Level Security",
+    "RPC": "Fonction PostgreSQL exposée Supabase",
+    "Gabarit": "program_session + lignes d'exercices modèle",
+    "Niveau actif": "training_levels sélectionné par utilisateur (profiles.active_training_level_id)",
+    "Workout": "Instance de séance utilisateur",
+    "Journal": "Ressenti et récupération post-séance",
+    "Historique": "Liste chronologique des séances passées et filtres"
+  }
+}
