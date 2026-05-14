@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom'
 import { supabaseBuildEnvFlags } from '../lib/supabase'
 
 export function SetupPage() {
-  const { hasUrl, hasAnonKey } = supabaseBuildEnvFlags
+  const { hasUrl, hasAnonKey, hasRecognizedOrigin } = supabaseBuildEnvFlags
 
   return (
     <div className="auth-page">
@@ -16,12 +16,23 @@ export function SetupPage() {
 {`VITE_SUPABASE_URL=https://xxx.supabase.co
 VITE_SUPABASE_ANON_KEY=ta_cle_anon`}
         </pre>
+        <p className="body muted" style={{ marginTop: 8 }}>
+          L’URL doit être uniquement <code className="code">https://&lt;ref&gt;.supabase.co</code> (Project Settings →
+          API → Project URL), <strong>sans</strong> <code className="code">/rest/v1</code> ni slash final.
+        </p>
         <div className="card-flat" style={{ marginTop: 16, padding: 14 }}>
           <p className="eyebrow">Diagnostic (dernier build)</p>
-          {hasUrl && hasAnonKey ? (
+          {hasUrl && hasAnonKey && hasRecognizedOrigin ? (
             <p className="body muted" style={{ marginTop: 10 }}>
               Les deux variables <code className="code">VITE_*</code> sont présentes dans ce déploiement. Clique sur
               Réessayer : si tu restes ici, vide le cache du navigateur ou ouvre un onglet privé.
+            </p>
+          ) : hasUrl && hasAnonKey && !hasRecognizedOrigin ? (
+            <p className="msg msg-err" style={{ marginTop: 10 }} role="alert">
+              <code className="code">VITE_SUPABASE_URL</code> n’est pas une origine de projet valide (ex. lien
+              dashboard, mauvais domaine). Utilise exactement l’URL du type{' '}
+              <code className="code">https://&lt;ref-projet&gt;.supabase.co</code> depuis Supabase → Project Settings →
+              API.
             </p>
           ) : (
             <>
