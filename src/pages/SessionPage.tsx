@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { ExerciseCard } from '../components/session/ExerciseCard'
 import { ExerciseTransition } from '../components/session/ExerciseTransition'
 import { RepsInputSheet } from '../components/session/RepsInputSheet'
 import { SetProgressList } from '../components/session/SetProgressList'
 import { WorkoutHeader } from '../components/session/WorkoutHeader'
 import { useAuth } from '../context/AuthContext'
-import { DEFAULT_REPOS_SECONDS, fetchProfileWithPreferences } from '../lib/catalog'
+import { DEFAULT_REPOS_SECONDS, fetchInProgressWorkouts, fetchProfileWithPreferences, type InProgressWorkoutRow } from '../lib/catalog'
 import { abandonWorkout } from '../lib/workoutSession'
 import { useWorkoutSession } from '../hooks/useWorkoutSession'
 import { formatRest } from '../utils/formatRest'
@@ -39,6 +39,9 @@ export function SessionPage() {
   const prepDeadlineMsRef = useRef(0)
   const audioCtxRef = useRef<AudioContext | null>(null)
 
+  const [sessionPickerLoading, setSessionPickerLoading] = useState(false)
+  const [inProgressList, setInProgressList] = useState<InProgressWorkoutRow[]>([])
+
   const session = useWorkoutSession(workoutId, prefs.repos_defaut_secondes ?? DEFAULT_REPOS_SECONDS)
   const sessionRef = useRef(session)
   sessionRef.current = session
@@ -47,6 +50,21 @@ export function SessionPage() {
   useEffect(() => {
     prevSessionStateRef.current = 'loading'
   }, [workoutId])
+
+  useEffect(() => {
+    if (workoutId) return
+    if (!user?.id) return
+    let cancelled = false
+    setSessionPickerLoading(true)
+    void fetchInProgressWorkouts(12).then(({ data, error }) => {
+      if (cancelled) return
+      setSessionPickerLoading(false)
+      if (!error) setInProgressList(data)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [workoutId, user?.id])
 
   useEffect(() => {
     if (!user?.id) return
@@ -242,8 +260,47 @@ export function SessionPage() {
 
   if (!workoutId) {
     return (
-      <div className="page-pad">
-        <p className="msg msg-err">Workout manquant. Démarre depuis l’accueil.</p>
+      <div className="page-pad page-tight-top">
+        <h1 className="h1">Séance</h1>
+        <p className="body muted" style={{ marginTop: 10 }}>
+          Aucun identifiant de séance dans l’URL. Démarre depuis l’accueil ou reprends une séance en cours.
+        </p>
+        {sessionPickerLoading ? (
+          <p className="body muted" style={{ marginTop: 20 }}>
+            Chargement…
+          </p>
+        ) : inProgressList.length > 0 ? (
+          <section className="card card-flat" style={{ marginTop: 20, padding: 16 }}>
+            <p className="eyebrow" style={{ marginBottom: 12 }}>
+              Reprendre une séance
+            </p>
+            <div className="stack" style={{ gap: 10 }}>
+              {inProgressList.map((w) => (
+                <button
+                  key={w.id}
+                  type="button"
+                  className="btn btn-primary"
+                  style={{ width: '100%' }}
+                  onClick={() => navigate(`/session?workoutId=${encodeURIComponent(w.id)}`)}
+                >
+                  {w.title?.trim() || 'Séance sans titre'}
+                </button>
+              ))}
+            </div>
+          </section>
+        ) : (
+          <p className="body muted" style={{ marginTop: 20 }}>
+            Aucune séance en cours. Lance une séance depuis l’accueil ou le catalogue niveaux.
+          </p>
+        )}
+        <div style={{ marginTop: 24, display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <Link className="btn btn-secondary" to="/">
+            Accueil
+          </Link>
+          <Link className="btn btn-accent-outline" to="/programs">
+            Catalogue niveaux
+          </Link>
+        </div>
       </div>
     )
   }

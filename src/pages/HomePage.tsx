@@ -2,7 +2,11 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import {
+  fetchInProgressWorkouts,
   fetchProfileWithPreferences,
+  fetchWeeklyTarget,
+  fetchWorkoutJournalList,
+  type InProgressWorkoutRow,
 } from '../lib/catalog'
 import { firstNameFromUser } from '../lib/greeting'
 import {
@@ -14,6 +18,7 @@ import {
   startWorkoutFromTrainingSession,
 } from '../lib/trainingCatalog'
 import type { TrainingLevel, TrainingLevelSession } from '../types/trainingCatalog'
+import { countWorkoutsInUtcWeek, currentWorkoutStreak, mondayUtcWeekStart } from '../utils/trainingStats'
 
 export function HomePage() {
   const { user } = useAuth()
@@ -30,6 +35,10 @@ export function HomePage() {
   const [sessionsLoading, setSessionsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [action, setAction] = useState<string | null>(null)
+  const [inProgress, setInProgress] = useState<InProgressWorkoutRow[]>([])
+  const [weekDone, setWeekDone] = useState(0)
+  const [weekTarget, setWeekTarget] = useState(3)
+  const [streak, setStreak] = useState(0)
 
   const loadData = useCallback(async () => {
     if (!user?.id) return
@@ -51,6 +60,35 @@ export function HomePage() {
   useEffect(() => {
     void loadData()
   }, [loadData])
+
+  useEffect(() => {
+    if (!user?.id) {
+      setInProgress([])
+      setWeekDone(0)
+      setWeekTarget(3)
+      setStreak(0)
+      return
+    }
+    let cancelled = false
+    const weekStart = mondayUtcWeekStart()
+    void Promise.all([
+      fetchInProgressWorkouts(6),
+      fetchWeeklyTarget(weekStart),
+      fetchWorkoutJournalList(120),
+    ]).then(([wip, wt, journal]) => {
+      if (cancelled) return
+      if (!wip.error) setInProgress(wip.data)
+      const target = wt.data?.target_sessions ?? 3
+      setWeekTarget(target)
+      if (!journal.error) {
+        setWeekDone(countWorkoutsInUtcWeek(journal.data, weekStart))
+        setStreak(currentWorkoutStreak(journal.data))
+      }
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [user?.id])
 
   useEffect(() => {
     const level = levels.find((l) => l.id === activeLevelId) ?? null
@@ -130,6 +168,62 @@ export function HomePage() {
           {action}
         </p>
       ) : null}
+
+      {inProgress.length > 0 ? (
+        <section className="card card-flat" style={{ marginBottom: 14, padding: 14 }}>
+          <p className="eyebrow" style={{ marginBottom: 10 }}>
+            Séance en cours
+          </p>
+          <div className="stack" style={{ gap: 8 }}>
+            {inProgress.map((w) => (
+              <button
+                key={w.id}
+                type="button"
+                className="btn btn-primary"
+                style={{ width: '100%' }}
+                onClick={() => navigate(`/session?workoutId=${encodeURIComponent(w.id)}`)}
+              >
+                Reprendre · {w.title?.trim() || 'Sans titre'}
+              </button>
+            ))}
+          </div>
+          <p className="body muted" style={{ marginTop: 10, fontSize: 12 }}>
+            Reprend là où tu t’es arrêté. Pour démarrer une nouvelle séance, termine ou abandonne l’ancienne depuis
+            l’écran Séance.
+          </p>
+        </section>
+      ) : null}
+
+      <section className="card card-flat" style={{ marginBottom: 14, padding: 14 }}>
+        <p className="eyebrow" style={{ marginBottom: 6 }}>
+          Semaine en cours (UTC)
+        </p>
+        <p className="body" style={{ color: 'var(--t1)' }}>
+          <strong>{weekDone}</strong> séance{weekDone !== 1 ? 's' : ''} terminée{weekDone !== 1 ? 's' : ''} sur{' '}
+          <strong>{weekTarget}</strong>
+        </p>
+        <div style={{ marginTop: 8, height: 8, borderRadius: 999, background: 'var(--bg3)', overflow: 'hidden' }}>
+          <div
+            style={{
+              height: '100%',
+              width: `${Math.min(100, weekTarget > 0 ? (weekDone / weekTarget) * 100 : 0)}%`,
+              background: weekDone >= weekTarget ? 'var(--green)' : 'var(--ac)',
+              transition: 'width 0.25s ease',
+            }}
+          />
+        </div>
+        <p className="body muted" style={{ marginTop: 8, fontSize: 12 }}>
+          {streak > 0 ? (
+            <>
+              Série actuelle : <strong className="mono">{streak}</strong> jour{streak > 1 ? 's' : ''} avec au moins une
+              séance.
+            </>
+          ) : (
+            <>Pas encore de série sur les derniers jours enregistrés.</>
+          )}{' '}
+          Objectif modifiable dans <Link to="/settings">Paramètres</Link>.
+        </p>
+      </section>
 
       <section className="hero card-hero">
         <p className="eyebrow">Aperçu</p>

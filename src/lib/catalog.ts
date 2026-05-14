@@ -257,6 +257,79 @@ export type WorkoutJournalListRow = {
   total_reps: number | null
 }
 
+export type InProgressWorkoutRow = {
+  id: string
+  title: string | null
+  status: string
+  started_at: string
+}
+
+/** Séances non terminées (reprise possible). */
+export async function fetchInProgressWorkouts(
+  limit = 8,
+): Promise<{ data: InProgressWorkoutRow[]; error: Error | null }> {
+  const { data, error } = await supabase
+    .from('workouts')
+    .select('id, title, status, started_at')
+    .eq('status', 'in_progress')
+    .order('started_at', { ascending: false })
+    .limit(limit)
+
+  if (error) return { data: [], error: new Error(error.message) }
+  return { data: (data ?? []) as InProgressWorkoutRow[], error: null }
+}
+
+export type WeeklyTargetRow = {
+  id: string
+  week_start: string
+  target_sessions: number
+  notes: string | null
+}
+
+export async function fetchWeeklyTarget(
+  weekStart: string,
+): Promise<{ data: WeeklyTargetRow | null; error: Error | null }> {
+  const { data, error } = await supabase
+    .from('weekly_targets')
+    .select('id, week_start, target_sessions, notes')
+    .eq('week_start', weekStart)
+    .maybeSingle()
+
+  if (error) return { data: null, error: new Error(error.message) }
+  return { data: (data as WeeklyTargetRow) ?? null, error: null }
+}
+
+export async function upsertWeeklyTarget(
+  weekStart: string,
+  targetSessions: number,
+  notes?: string | null,
+): Promise<{ error: Error | null }> {
+  const { data: u } = await supabase.auth.getUser()
+  const uid = u.user?.id
+  if (!uid) return { error: new Error('Non connecté') }
+
+  const n = Math.max(1, Math.min(14, Math.floor(targetSessions)))
+  const { error } = await supabase.from('weekly_targets').upsert(
+    {
+      user_id: uid,
+      week_start: weekStart,
+      target_sessions: n,
+      notes: notes ?? null,
+    },
+    { onConflict: 'user_id,week_start' },
+  )
+
+  if (error) return { error: new Error(error.message) }
+  return { error: null }
+}
+
+export async function fetchPersonalRecordsCount(): Promise<{ count: number; error: Error | null }> {
+  const { count, error } = await supabase.from('personal_records').select('id', { count: 'exact', head: true })
+
+  if (error) return { count: 0, error: new Error(error.message) }
+  return { count: count ?? 0, error: null }
+}
+
 export async function fetchWorkoutJournalList(
   limit = 100,
 ): Promise<{ data: WorkoutJournalListRow[]; error: Error | null }> {

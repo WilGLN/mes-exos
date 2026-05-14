@@ -1,10 +1,10 @@
 {
   "meta": {
     "nom_produit": "Lafay Tracker",
-    "version_document": "1.4.3",
+    "version_document": "1.5.0",
     "date_generation": "2026-05-14",
     "langue": "fr-FR",
-    "description_courte": "Web app mobile-first (iPhone 12+, affinage iPhone 14+) pour le suivi d'entraînement type méthode Lafay : programmes, séance, timer de repos inline, enregistrement des reps, journal de ressenti, historique filtrable et statistiques — données Supabase, accès sécurisé.",
+    "description_courte": "Web app mobile-first (iPhone 12+, affinage iPhone 14+) pour le suivi d'entraînement type méthode Lafay : programmes, séance, timer de repos inline, enregistrement des reps, journal de ressenti, historique filtrable et statistiques — navigation par menu hamburger (tiroir latéral) dans l'en-tête, données Supabase, accès sécurisé.",
     "statut_projet": "en_developpement",
     "documents_associes": [
       "design/ux-specification-lafay-tracker.json"
@@ -30,7 +30,7 @@
     "contraintes_ux_produit": [
       "Mobile-first, iPhone 12 et suivants ; usage à une main ; gros boutons",
       "Lisibilité maximale pendant l'effort ; mode sombre prioritaire",
-      "Navigation basse ; design sportif compact, éviter le rendu « template SaaS »"
+      "Navigation principale via menu hamburger en en-tête (tiroir latéral) ; zones tactiles larges ; design sportif compact, éviter le rendu « template SaaS »"
     ]
   },
   "personas": [
@@ -82,7 +82,7 @@
       {
         "id": "seance",
         "nom": "Séance en cours",
-        "description": "Orchestration complète : exercice courant, progression des séries, saisie reps en sheet, timer de repos inline visible sur la page pendant la saisie et le repos, décompte sonore sur les 5 dernières secondes (si son activé), vibrations courtes sur 3–2–1 (si vibration activée), blocage explicite de « Série validée » pendant le repos avec action « Ignorer repos », transition inter-exercices avec durée rest_after_exercise_seconds affichée et passage auto à l'exercice suivant à la fin du compte à rebours, abandon, fin de séance.",
+        "description": "Orchestration complète : exercice courant, progression des séries, saisie reps en sheet, timer de repos inline visible sur la page pendant la saisie et le repos, décompte basé sur une échéance temps réel (fiabilité des 5 dernières secondes), décompte sonore 5–1 s (si son activé), vibrations courtes sur les 5 dernières secondes (si vibration activée), affichage chiffré large 5→1, blocage explicite de « Série validée » pendant le repos avec action « Ignorer repos », transition inter-exercices avec durée rest_after_exercise_seconds affichée et passage auto à l'exercice suivant à la fin du compte à rebours, abandon, fin de séance.",
         "routes": ["/session", "/session/:workoutId/complete"],
         "exigences_cible": [
           "Persistance série par série dans workout_sets",
@@ -95,7 +95,7 @@
           "Gérer exercices unilatéraux (droite/gauche)",
           "Filtrer les placeholders workout_sets (0 reps, non complétés) pour l'affichage progression"
         ],
-        "etat_implementation": "phase_1_implementee_v142_timer_inline_transition_inter_exercices"
+        "etat_implementation": "phase_1_implementee_v150_timer_deadline_alertes_5s"
       },
       {
         "id": "timer",
@@ -107,7 +107,7 @@
           "Minuteur stable ; reduced-motion"
         ],
         "etat_implementation": "implemente_v13_presets_7_vibration_alertes",
-        "alignement_seance": "Même logique d'alertes que possible en séance : bip 5–1 s, vibration 3–2–1 si préférences activées (voir module séance)"
+        "alignement_seance": "Aligné sur la séance : alertes 5–1 s (son + vibration) si préférences activées"
       },
       {
         "id": "fin_seance",
@@ -119,24 +119,23 @@
       {
         "id": "journal",
         "nom": "Journal (ressenti)",
-        "description": "Saisie ressenti, énergie, sommeil, douleur, note libre liés aux séances — table dédiée à prévoir (extension schéma).",
-        "routes_cibles_ux": ["/journal"],
-        "routes_impl_actuelles": "Non : l'écran /history est nommé « Journal » dans la nav actuelle (à renommer / scinder)",
-        "etat_implementation": "non_implemente_donnees"
+        "description": "Liste des entrées session_journal (RPE, énergie, sommeil, douleurs, notes) avec titre de séance ; saisie à la fin de séance (/session/:id/complete), y compris si l'utilisateur choisit « Plus tard » (ligne minimale créée).",
+        "routes": ["/journal"],
+        "etat_implementation": "implemente_v150_liste_supabase"
       },
       {
         "id": "historique",
         "nom": "Historique",
-        "description": "Liste des séances et repos, filtres 7 jours / mois / exercice / programme ; lecture v_workout_journal + rest_days.",
+        "description": "Liste des séances terminées depuis v_workout_journal ; filtres 7 jours / 30 jours / tout. Distinct du Journal (ressenti post-effort).",
         "routes": ["/history"],
-        "etat_implementation": "ui_statique"
+        "etat_implementation": "implemente_v150_donnees_reelles"
       },
       {
         "id": "stats",
         "nom": "Statistiques",
-        "description": "KPIs, graphique par exercice, records personnels ; vues v_weekly_training_stats, personal_records.",
+        "description": "Indicateurs agrégés simples à partir des séances terminées (7 j, 30 j, durée moyenne) — sans graphiques fictifs. Records / graphiques détaillés : phase ultérieure.",
         "routes": ["/stats"],
-        "etat_implementation": "ui_statique"
+        "etat_implementation": "implemente_v150_kpis_reels_partiel"
       },
       {
         "id": "profil",
@@ -156,8 +155,9 @@
     ],
     "navigation": {
       "implementation_actuelle": {
-        "type": "barre_inferieure_7_onglets",
-        "onglets": [
+        "type": "menu_hamburger_tiroir_lateral",
+        "emplacement": "Bouton trois traits en tête de barre (header), à gauche du titre « Lafay Tracker » ; panneau coulissant depuis la gauche avec liste des routes ; fermeture : bouton ✕, clic sur le fond assombri, touche Échap, ou navigation vers une route.",
+        "entrees_menu": [
           { "label": "Accueil", "path": "/" },
           { "label": "Programmes", "path": "/programs" },
           { "label": "Séance", "path": "/session" },
@@ -166,11 +166,12 @@
           { "label": "Journal", "path": "/journal" },
           { "label": "Stats", "path": "/stats" }
         ],
-        "acces_compte": "Avatar header → /profile ; engrenage header → /settings"
+        "acces_compte": "Avatar header → /profile ; engrenage header → /settings",
+        "fichier": "src/components/AppLayout.tsx"
       },
       "cible_ux_documentee": {
         "reference": "design/ux-specification-lafay-tracker.json",
-        "onglets": ["Accueil", "Programmes", "Journal", "Historique", "Stats"],
+        "note": "La spec historique mentionnait une barre d'onglets basse ; le produit utilise désormais le menu hamburger (v1.5.0). Convergence possible dans une révision de la spec UX.",
         "parametres": "Icône engrenage header → /settings"
       }
     }
@@ -199,7 +200,7 @@
     },
     "responsive": {
       "reference_device": "iPhone 12+ puis affinage iPhone 14 / 15 / 16 / Plus / Pro Max (portrait et paysage), Dynamic Island / encoche, safe areas",
-      "comportement": "Shell max ~520px centré sur grand écran ; 100dvh ; nav fixe basse. Cartes catalogue (/programs) : layout colonne par défaut pour lisibilité même quand la fenêtre du navigateur est large mais la colonne de contenu reste étroite ; grille 2 colonnes large écran ≥520px.",
+      "comportement": "Shell max ~520px centré sur grand écran ; 100dvh ; menu principal en tiroir hamburger (plus de barre d'onglets fixe en bas). Cartes catalogue (/programs) : layout colonne par défaut pour lisibilité même quand la fenêtre du navigateur est large mais la colonne de contenu reste étroite ; grille 2 colonnes large écran ≥520px.",
       "developpement": "Pour voir les changements front, utiliser le serveur Vite (npm run dev, port 5174 par défaut) et non un serveur de fichiers statiques seul."
     }
   },
@@ -235,7 +236,8 @@
       "supabase/migrations/0007_seed_training_catalog.sql",
       "supabase/migrations/0008_session_journal.sql",
       "supabase/migrations/0009_seed_training_catalog_conforme.sql",
-      "supabase/migrations/0010_fix_rest_times_conforme.sql"
+      "supabase/migrations/0010_fix_rest_times_conforme.sql",
+      "supabase/migrations/0011_remove_demo_programs.sql"
     ],
     "extensions_prevues": [],
     "tables_principales": [
@@ -294,7 +296,7 @@
       "routes": "src/App.tsx",
       "auth": "src/context/AuthContext.tsx",
       "garde_routes": ["src/components/RequireAuth.tsx", "src/components/GuestOnly.tsx"],
-      "layout": "src/components/AppLayout.tsx",
+      "layout": "src/components/AppLayout.tsx (topbar + menu hamburger / tiroir navigation)",
       "pages": "src/pages/*.tsx",
       "session_components": "src/components/session/*.tsx",
       "session_hook": "src/hooks/useWorkoutSession.ts",
@@ -315,7 +317,8 @@
     "Chaque fiche reste courte et inclut un renvoi explicite vers le livre",
     "En séance, chaque validation de série persiste les reps dans workout_sets",
     "En séance, le timer de repos reste visible pendant la saisie des reps ; entre deux exercices le timer inter-exercice est visible puis enchaîne sur l'exercice suivant",
-    "La route /session/:workoutId/complete affiche un récap puis enregistre session_journal"
+    "La route /session/:workoutId/complete affiche un récap puis enregistre session_journal (y compris entrée minimale si « Plus tard »)",
+    "Menu hamburger : ouverture/fermeture accessibles (aria-expanded, Échap, fond cliquable)"
   ],
   "hors_perimetre_v1": [
     "App native store",
@@ -332,7 +335,7 @@
       "Migrations 0001–0008 + seed catalogue conforme 0009 (schéma core, index, RPC, mensurations, tests, référentiel niveaux, journal séance)",
       "Catalogue niveaux: /programs + /programs/:slug avec filtres, disclaimer et layout responsive mobile-first des cartes",
       "Accueil branché sur niveau actif + démarrage séance via start_workout_from_training_session",
-      "Session enrichie : timer inline, repos inter-exercices, alertes son/vibration fin de compte, garde-fous UX validation",
+      "Session enrichie : timer inline (échéance temps réel), repos inter-exercices, alertes 5 s son/vibration, garde-fous UX validation",
       "Phase 1 séance: service workoutSession, hook useWorkoutSession, composants session, migration session_journal"
     ],
     "phase_1": [

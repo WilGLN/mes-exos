@@ -38,12 +38,19 @@ export function JournalPage() {
 
   return (
     <div className="page-pad">
-      <h1 className="h1">Journal</h1>
-      <p className="body muted" style={{ marginTop: 8 }}>
-        Ressenti après l’effort (RPE, énergie, sommeil, notes) enregistré à la fin de séance. L’
-        <strong>Historique</strong> liste les séances terminées (volume, durée) ; le <strong>Journal</strong> regroupe
-        ces saisies « post-séance ».
-      </p>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
+        <div>
+          <h1 className="h1">Journal</h1>
+          <p className="body muted" style={{ marginTop: 8 }}>
+            Ressenti après l’effort (RPE, énergie, sommeil, notes) enregistré à la fin de séance. L’
+            <strong>Historique</strong> liste les séances terminées (volume, durée) ; le <strong>Journal</strong> regroupe
+            ces saisies « post-séance ».
+          </p>
+        </div>
+        <button type="button" className="btn btn-secondary" style={{ width: 'auto', padding: '10px 14px' }} onClick={() => void load()}>
+          Actualiser
+        </button>
+      </div>
 
       {err ? (
         <p className="msg msg-err" role="alert" style={{ marginTop: 16 }}>

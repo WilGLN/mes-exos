@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { fetchProfileWithPreferences, mergeProfilePreferences, type TimerPreferences } from '../lib/catalog'
+import { fetchProfileWithPreferences, fetchWeeklyTarget, mergeProfilePreferences, upsertWeeklyTarget, type TimerPreferences } from '../lib/catalog'
+import { mondayUtcWeekStart } from '../utils/trainingStats'
 import { DEFAULT_REPOS_SECONDS, REPOS_PRESETS_LAFAY } from '../lib/lafayTimer'
 
 export function SettingsPage() {
@@ -9,6 +10,9 @@ export function SettingsPage() {
   const [prefs, setPrefs] = useState<TimerPreferences>({})
   const [loading, setLoading] = useState(true)
   const [msg, setMsg] = useState<string | null>(null)
+  const [weekTarget, setWeekTarget] = useState(3)
+  const [weekTargetLoading, setWeekTargetLoading] = useState(true)
+  const [weekMsg, setWeekMsg] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     if (!user?.id) {
@@ -25,6 +29,34 @@ export function SettingsPage() {
   useEffect(() => {
     void load()
   }, [load])
+
+  useEffect(() => {
+    if (!user?.id) {
+      setWeekTargetLoading(false)
+      return
+    }
+    let cancelled = false
+    setWeekTargetLoading(true)
+    void fetchWeeklyTarget(mondayUtcWeekStart()).then(({ data, error }) => {
+      if (cancelled) return
+      setWeekTargetLoading(false)
+      if (error) setWeekMsg(error.message)
+      else {
+        setWeekMsg(null)
+        setWeekTarget(data?.target_sessions ?? 3)
+      }
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [user?.id])
+
+  async function saveWeeklyTarget() {
+    setWeekMsg(null)
+    const { error } = await upsertWeeklyTarget(mondayUtcWeekStart(), weekTarget)
+    if (error) setWeekMsg(error.message)
+    else setWeekMsg('__OK__')
+  }
 
   async function patch(p: Partial<TimerPreferences>) {
     setMsg(null)
@@ -145,6 +177,39 @@ export function SettingsPage() {
                 {prefs.afficher_criteres_passage_en_seance !== false ? 'Activé' : 'Désactivé'}
               </button>
             </div>
+          </>
+        )}
+      </section>
+
+      <section className="profile-card stack" style={{ marginTop: 20 }}>
+        <p className="eyebrow">Objectif hebdomadaire</p>
+        <p className="body muted" style={{ fontSize: 13 }}>
+          Semaine calendaire <strong>UTC</strong> (lundi → dimanche), alignée avec l’indicateur de l’accueil.
+        </p>
+        {weekTargetLoading ? (
+          <p className="body muted">Chargement…</p>
+        ) : (
+          <>
+            <label className="profile-label" htmlFor="week-target">
+              Nombre de séances terminées visées (1 à 14)
+            </label>
+            <input
+              id="week-target"
+              className="input"
+              type="number"
+              min={1}
+              max={14}
+              value={weekTarget}
+              onChange={(e) => setWeekTarget(Math.max(1, Math.min(14, Number(e.target.value) || 1)))}
+            />
+            <button type="button" className="btn btn-primary" style={{ marginTop: 8 }} onClick={() => void saveWeeklyTarget()}>
+              Enregistrer l’objectif
+            </button>
+            {weekMsg ? (
+              <p className={`msg${weekMsg === '__OK__' ? ' msg-ok' : ' msg-err'}`} style={{ marginTop: 10 }}>
+                {weekMsg === '__OK__' ? 'Objectif enregistré pour la semaine en cours (lundi UTC).' : weekMsg}
+              </p>
+            ) : null}
           </>
         )}
       </section>

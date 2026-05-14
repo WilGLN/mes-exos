@@ -68,7 +68,12 @@ export function HistoryPage() {
 
   return (
     <div className="page-pad">
-      <h1 className="h1">Historique</h1>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
+        <h1 className="h1">Historique</h1>
+        <button type="button" className="btn btn-secondary" style={{ width: 'auto', padding: '10px 14px' }} onClick={() => void load()}>
+          Actualiser
+        </button>
+      </div>
       <p className="body muted" style={{ marginTop: 8 }}>
         Séances terminées : volume, durée et RPE enregistré sur la séance (pas le formulaire ressenti détaillé — voir
         l’onglet Journal).

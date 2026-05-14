@@ -1,32 +1,35 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import {
-  CITATION_REPOS_LAFAY,
-  DEFAULT_REPOS_SECONDS,
-  NOTE_MICRO_PAUSE,
-  REPOS_PRESETS_LAFAY,
-} from '../lib/lafayTimer'
+import { IntervalBuilder } from '../components/timer/IntervalBuilder'
+import { IntervalPlayer } from '../components/timer/IntervalPlayer'
+import { SimpleTimer } from '../components/timer/SimpleTimer'
+import { TimerTabs, type TimerTabId } from '../components/timer/TimerTabs'
+import { WorkoutEditor } from '../components/timer/WorkoutEditor'
+import { WorkoutList } from '../components/timer/WorkoutList'
+import { useTimerWorkouts } from '../hooks/useTimerWorkouts'
 import { fetchProfileWithPreferences, type TimerPreferences } from '../lib/catalog'
 import { supabase } from '../lib/supabase'
+import type { BuiltPhase } from '../types/timer'
+import type { TimerWorkout } from '../types/timer'
 
-function fmtTime(s: number) {
-  const m = Math.floor(s / 60)
-  const sec = s % 60
-  return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`
+function readRingFlash(): boolean {
+  try {
+    const v = localStorage.getItem('lafay_timer_ring_flash')
+    if (v === null) return true
+    return v === '1'
+  } catch {
+    return true
+  }
 }
 
 export function TimerPage() {
+  const [tab, setTab] = useState<TimerTabId>('simple')
   const [prefs, setPrefs] = useState<TimerPreferences | null>(null)
-  const [total, setTotal] = useState(DEFAULT_REPOS_SECONDS)
-  const [remaining, setRemaining] = useState(DEFAULT_REPOS_SECONDS)
-  const [running, setRunning] = useState(false)
-  const warnedRef = useRef(false)
-  const endedBeepRef = useRef(false)
+  const [playerPhases, setPlayerPhases] = useState<BuiltPhase[] | null>(null)
+  const [playerKey, setPlayerKey] = useState(0)
+  const [editor, setEditor] = useState<TimerWorkout | 'new' | null>(null)
 
-  const circumference = useMemo(() => 2 * Math.PI * 100, [])
-
-  const vibrationOn = prefs?.vibration !== false
-  const sonOn = prefs?.son_fin !== false
+  const { list, save, remove } = useTimerWorkouts()
 
   useEffect(() => {
     let cancelled = false
@@ -34,12 +37,7 @@ export function TimerPage() {
       if (!user || cancelled) return
       void fetchProfileWithPreferences(user.id).then(({ data }) => {
         if (cancelled || !data) return
-        const p = data.preferences ?? {}
-        setPrefs(p)
-        const def = typeof p.repos_defaut_secondes === 'number' ? p.repos_defaut_secondes : DEFAULT_REPOS_SECONDS
-        const valid = REPOS_PRESETS_LAFAY.some((x) => x.seconds === def) ? def : DEFAULT_REPOS_SECONDS
-        setTotal(valid)
-        setRemaining(valid)
+        setPrefs((data.preferences as TimerPreferences) ?? {})
       })
     })
     return () => {
@@ -47,161 +45,64 @@ export function TimerPage() {
     }
   }, [])
 
-  const dashOffset = useMemo(() => {
-    if (total <= 0) return circumference
-    return circumference * (1 - remaining / total)
-  }, [circumference, remaining, total])
+  const sonOn = prefs?.son_fin !== false
+  const vibrationOn = prefs?.vibration !== false
 
-  useEffect(() => {
-    if (!running) return
-    const id = window.setInterval(() => {
-      setRemaining((r) => (r <= 0 ? 0 : r - 1))
-    }, 1000)
-    return () => window.clearInterval(id)
-  }, [running, total])
+  const flashOn = useMemo(() => readRingFlash(), [tab, playerPhases])
 
-  useEffect(() => {
-    if (remaining <= 0) setRunning(false)
-  }, [remaining])
-
-  useEffect(() => {
-    if (remaining > 5 || remaining <= 0 || !running) {
-      if (remaining > 5) warnedRef.current = false
-      return
-    }
-    if (!warnedRef.current && vibrationOn && typeof navigator !== 'undefined' && navigator.vibrate) {
-      warnedRef.current = true
-      navigator.vibrate(200)
-    }
-  }, [remaining, running, vibrationOn])
-
-  const playEndBeep = useCallback(() => {
-    if (!sonOn || typeof window === 'undefined' || !window.AudioContext) return
-    try {
-      const ctx = new AudioContext()
-      const o = ctx.createOscillator()
-      const g = ctx.createGain()
-      o.connect(g)
-      g.connect(ctx.destination)
-      o.frequency.value = 660
-      g.gain.value = 0.07
-      o.start()
-      o.stop(ctx.currentTime + 0.15)
-      void ctx.resume().catch(() => {})
-    } catch {
-      /* ignore */
-    }
-  }, [sonOn])
-
-  useEffect(() => {
-    if (remaining !== 0 || endedBeepRef.current) return
-    endedBeepRef.current = true
-    if (vibrationOn && typeof navigator !== 'undefined' && navigator.vibrate) {
-      navigator.vibrate([300, 100, 300])
-    }
-    playEndBeep()
-  }, [remaining, vibrationOn, playEndBeep])
-
-  useEffect(() => {
-    if (remaining > 0) endedBeepRef.current = false
-  }, [remaining])
-
-  function setPreset(sec: number) {
-    setTotal(sec)
-    setRemaining(sec)
-    setRunning(true)
-    warnedRef.current = false
-    endedBeepRef.current = false
+  function openPlayer(ph: BuiltPhase[]) {
+    if (!ph.length) return
+    setPlayerPhases(ph)
+    setPlayerKey((k) => k + 1)
   }
 
-  function toggle() {
-    setRunning((prev) => {
-      if (!prev && remaining <= 0) return false
-      return !prev
-    })
+  function closePlayer() {
+    setPlayerPhases(null)
   }
-
-  function reset() {
-    setRemaining(total)
-    setRunning(true)
-    warnedRef.current = false
-    endedBeepRef.current = false
-  }
-
-  function addSeconds(n: number) {
-    setRemaining((r) => Math.min(r + n, 600))
-  }
-
-  const danger = remaining <= 5 && remaining > 0
 
   return (
-    <div className="page-pad page-timer">
-      <Link className="t-back" to="/session">
+    <div className="page-pad page-timer page-timer-v2">
+      <Link className="t-back" to="/">
         <span aria-hidden>←</span>
-        <span>Retour à la séance</span>
+        <span>Accueil</span>
       </Link>
 
-      <div className="t-big">
-        <p className="t-phase">Temps de repos</p>
-        <div className="t-ring">
-          <svg className="ring-svg" width={220} height={220} viewBox="0 0 220 220" aria-hidden>
-            <circle className="ring-bg" cx={110} cy={110} r={100} />
-            <circle
-              className={`ring-fg${danger ? ' ring-fg-danger' : ''}`}
-              cx={110}
-              cy={110}
-              r={100}
-              style={{
-                strokeDasharray: circumference,
-                strokeDashoffset: dashOffset,
-              }}
-            />
-          </svg>
-          <div className="t-center">
-            <p className={`t-disp t-disp-massive mono${danger ? ' t-disp-danger' : ''}`}>{fmtTime(remaining)}</p>
-            <p className="t-sub mono">/ {fmtTime(total)}</p>
-          </div>
-        </div>
+      <TimerTabs value={tab} onChange={setTab} />
+
+      <div className="page-timer-panel" role="tabpanel">
+        {tab === 'simple' ? <SimpleTimer /> : null}
+        {tab === 'intervals' ? <IntervalBuilder onLaunch={openPlayer} /> : null}
+        {tab === 'workouts' ? (
+          <WorkoutList
+            workouts={list}
+            onRemove={remove}
+            onLaunch={openPlayer}
+            onEdit={(w) => setEditor(w)}
+            onNew={() => setEditor('new')}
+          />
+        ) : null}
       </div>
 
-      <div className="t-presets-grid">
-        {REPOS_PRESETS_LAFAY.map((p) => (
-          <button
-            key={p.seconds}
-            type="button"
-            className={`tp mono${total === p.seconds ? ' on' : ''}`}
-            title={p.description}
-            onClick={() => setPreset(p.seconds)}
-          >
-            {p.label}
-          </button>
-        ))}
-      </div>
-      <p className="t-citation">{CITATION_REPOS_LAFAY}</p>
-      <p className="t-micro-hint">
-        {NOTE_MICRO_PAUSE}{' '}
-        <button type="button" className="t-micro-plus mono" onClick={() => addSeconds(5)}>
-          +5 s
-        </button>
-      </p>
+      {playerPhases ? (
+        <IntervalPlayer
+          key={playerKey}
+          phases={playerPhases}
+          onClose={closePlayer}
+          sonEnabled={sonOn}
+          vibrationEnabled={vibrationOn}
+          flashEnabled={flashOn}
+        />
+      ) : null}
 
-      <div className="t-ctrls-row">
-        <button type="button" className="tc tc-side mono" onClick={() => addSeconds(10)}>
-          +10 s
-        </button>
-        <button type="button" className="tc tc-p" onClick={toggle}>
-          {running ? 'Pause' : 'Reprendre'}
-        </button>
-        <button type="button" className="tc tc-side" onClick={reset}>
-          Réinitialiser
-        </button>
-      </div>
-
-      <div className="card t-next">
-        <p className="t-next-lbl">Réglages</p>
-        <p className="t-next-nm">Son, vibration et démarrage auto : page Paramètres</p>
-        <p className="t-next-sub mono">Repos par défaut : {prefs?.repos_defaut_secondes ?? DEFAULT_REPOS_SECONDS} s</p>
-      </div>
+      {editor !== null ? (
+        <WorkoutEditor
+          initial={editor === 'new' ? null : editor}
+          onClose={() => setEditor(null)}
+          onSave={(w) => {
+            save(w)
+          }}
+        />
+      ) : null}
     </div>
   )
 }
