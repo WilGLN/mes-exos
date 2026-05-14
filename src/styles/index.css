@@ -366,19 +366,13 @@ a.bnav-item,
   color: var(--ac);
 }
 
+/* Zone scrollable entre topbar et bnav (flex + min-height:0, pas de min-height en dvh). */
 .app-main {
-  flex: 1;
+  flex: 1 1 auto;
   min-height: 0;
-  min-height: calc(100dvh - 132px);
   overflow-y: auto;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
-}
-
-@supports (height: 100svh) {
-  .app-main {
-    min-height: calc(100svh - 132px);
-  }
 }
 
 .app-main::-webkit-scrollbar {
