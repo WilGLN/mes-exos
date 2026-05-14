@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { JournalSwipeRow } from '../components/journal/JournalSwipeRow'
 import { useAuth } from '../context/AuthContext'
-import { fetchWorkoutJournalList, type WorkoutJournalListRow } from '../lib/catalog'
+import { deleteWorkoutById, fetchWorkoutJournalList, type WorkoutJournalListRow } from '../lib/catalog'
 
 type Filter = '7j' | '30j' | 'all'
 
@@ -22,6 +23,7 @@ export function HistoryPage() {
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState<string | null>(null)
   const [filter, setFilter] = useState<Filter>('7j')
+  const [openSwipeId, setOpenSwipeId] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     if (!user?.id) {
@@ -78,6 +80,10 @@ export function HistoryPage() {
         Séances terminées : volume, durée et RPE enregistré sur la séance (pas le formulaire ressenti détaillé — voir
         l’onglet Journal).
       </p>
+      <p className="body muted" style={{ marginTop: 6, fontSize: 12 }}>
+        Glisse une ligne vers la gauche pour afficher la corbeille et supprimer la séance (y compris le ressenti du
+        journal associé).
+      </p>
 
       <div className="hf-row" style={{ marginTop: 14 }}>
         <button type="button" className={`hf${filter === '7j' ? ' on' : ''}`} onClick={() => setFilter('7j')}>
@@ -110,28 +116,42 @@ export function HistoryPage() {
           <section key={day} className="hg">
             <h2 className="hg-lbl">{dayLabel(day)}</h2>
             {sessions.map((s) => (
-              <article key={s.id} className="he card-flat">
-                <span className="hdot" aria-hidden />
-                <div className="hi">
-                  <h3 className="hn">{s.title ?? 'Séance'}</h3>
-                  <p className="hm">
-                    {formatDuration(s.duration_seconds)}
-                    {s.exercise_count != null ? ` · ${s.exercise_count} ex.` : ''}
-                    {s.set_count != null ? ` · ${s.set_count} séries` : ''}
-                    {s.total_reps != null ? ` · ${s.total_reps} reps` : ''}
-                  </p>
-                </div>
-                <div className="hrpe">
-                  {s.rpe != null ? (
-                    <>
-                      <span className="hrpe-v">{s.rpe}</span>
-                      <span className="hrpe-l">RPE</span>
-                    </>
-                  ) : (
-                    <span className="hrpe-l">—</span>
-                  )}
-                </div>
-              </article>
+              <JournalSwipeRow
+                key={s.id}
+                rowId={s.id}
+                openRowId={openSwipeId}
+                setOpenRowId={setOpenSwipeId}
+                deleteConfirmMessage="Supprimer cette séance de l’historique ? Les données de volume et le journal post-séance associés seront supprimés."
+                deleteAriaLabel="Supprimer la séance"
+                onDelete={async () => {
+                  const { error } = await deleteWorkoutById(s.id)
+                  if (!error) await load()
+                  return { error }
+                }}
+              >
+                <article className="he">
+                  <span className="hdot" aria-hidden />
+                  <div className="hi">
+                    <h3 className="hn">{s.title ?? 'Séance'}</h3>
+                    <p className="hm">
+                      {formatDuration(s.duration_seconds)}
+                      {s.exercise_count != null ? ` · ${s.exercise_count} ex.` : ''}
+                      {s.set_count != null ? ` · ${s.set_count} séries` : ''}
+                      {s.total_reps != null ? ` · ${s.total_reps} reps` : ''}
+                    </p>
+                  </div>
+                  <div className="hrpe">
+                    {s.rpe != null ? (
+                      <>
+                        <span className="hrpe-v">{s.rpe}</span>
+                        <span className="hrpe-l">RPE</span>
+                      </>
+                    ) : (
+                      <span className="hrpe-l">—</span>
+                    )}
+                  </div>
+                </article>
+              </JournalSwipeRow>
             ))}
           </section>
         ))

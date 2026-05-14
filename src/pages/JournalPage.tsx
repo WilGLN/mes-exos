@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
+import { JournalSwipeRow } from '../components/journal/JournalSwipeRow'
 import { useAuth } from '../context/AuthContext'
-import { fetchSessionJournalWithTitles, type SessionJournalListRow } from '../lib/catalog'
+import { deleteSessionJournalEntry, fetchSessionJournalWithTitles, type SessionJournalListRow } from '../lib/catalog'
 
 function fmtShort(iso: string | null): string {
   if (!iso) return '—'
@@ -13,6 +14,7 @@ export function JournalPage() {
   const [rows, setRows] = useState<SessionJournalListRow[]>([])
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState<string | null>(null)
+  const [openSwipeId, setOpenSwipeId] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     if (!user?.id) {
@@ -46,6 +48,9 @@ export function JournalPage() {
             <strong>Historique</strong> liste les séances terminées (volume, durée) ; le <strong>Journal</strong> regroupe
             ces saisies « post-séance ».
           </p>
+          <p className="body muted" style={{ marginTop: 6, fontSize: 12 }}>
+            Glisse une entrée vers la gauche pour afficher la corbeille et supprimer.
+          </p>
         </div>
         <button type="button" className="btn btn-secondary" style={{ width: 'auto', padding: '10px 14px' }} onClick={() => void load()}>
           Actualiser
@@ -72,27 +77,39 @@ export function JournalPage() {
       ) : (
         <div className="stack" style={{ marginTop: 18 }}>
           {rows.map((r) => (
-            <article key={r.id} className="prog-item card-flat">
-              <div className="prog-body">
-                <p className="prog-title">{r.workout_title ?? 'Séance'}</p>
-                <p className="prog-sub">
-                  {fmtShort(r.workout_started_at)} · saisie {fmtShort(r.created_at)}
-                </p>
-                <p className="body muted" style={{ marginTop: 8 }}>
-                  RPE {r.rpe ?? '—'} · Énergie {r.energy ?? '—'}/5 · Sommeil {r.sleep_quality ?? '—'}/5
-                </p>
-                {r.pain_notes ? (
-                  <p className="body" style={{ marginTop: 6 }}>
-                    Douleur / inconfort : {r.pain_notes}
+            <JournalSwipeRow
+              key={r.id}
+              rowId={r.id}
+              openRowId={openSwipeId}
+              setOpenRowId={setOpenSwipeId}
+              onDelete={async () => {
+                const { error } = await deleteSessionJournalEntry(r.id)
+                if (!error) await load()
+                return { error }
+              }}
+            >
+              <div className="prog-item">
+                <div className="prog-body">
+                  <p className="prog-title">{r.workout_title ?? 'Séance'}</p>
+                  <p className="prog-sub">
+                    {fmtShort(r.workout_started_at)} · saisie {fmtShort(r.created_at)}
                   </p>
-                ) : null}
-                {r.free_notes ? (
-                  <p className="body" style={{ marginTop: 6 }}>
-                    {r.free_notes}
+                  <p className="body muted" style={{ marginTop: 8 }}>
+                    RPE {r.rpe ?? '—'} · Énergie {r.energy ?? '—'}/5 · Sommeil {r.sleep_quality ?? '—'}/5
                   </p>
-                ) : null}
+                  {r.pain_notes ? (
+                    <p className="body" style={{ marginTop: 6 }}>
+                      Douleur / inconfort : {r.pain_notes}
+                    </p>
+                  ) : null}
+                  {r.free_notes ? (
+                    <p className="body" style={{ marginTop: 6 }}>
+                      {r.free_notes}
+                    </p>
+                  ) : null}
+                </div>
               </div>
-            </article>
+            </JournalSwipeRow>
           ))}
         </div>
       )}

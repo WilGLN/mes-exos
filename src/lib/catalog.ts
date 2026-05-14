@@ -394,3 +394,16 @@ export async function fetchSessionJournalWithTitles(
     error: null,
   }
 }
+
+export async function deleteSessionJournalEntry(journalId: string): Promise<{ error: Error | null }> {
+  const { error } = await supabase.from('session_journal').delete().eq('id', journalId)
+  if (error) return { error: new Error(error.message) }
+  return { error: null }
+}
+
+/** Supprime une séance terminée (workout) : cascade exercices / séries / journal post-séance. */
+export async function deleteWorkoutById(workoutId: string): Promise<{ error: Error | null }> {
+  const { error } = await supabase.from('workouts').delete().eq('id', workoutId)
+  if (error) return { error: new Error(error.message) }
+  return { error: null }
+}

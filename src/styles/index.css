@@ -1200,6 +1200,10 @@ a.app-nav-drawer-link,
   margin-top: 8px;
 }
 
+.hg .journal-swipe-wrap + .journal-swipe-wrap {
+  margin-top: 8px;
+}
+
 .hdot {
   width: 8px;
   height: 8px;
@@ -2917,4 +2921,61 @@ select.input {
 .custom-phase-add {
   margin-top: 8px;
   width: 100%;
+}
+
+/* ——— Journal : swipe pour supprimer ——— */
+.journal-swipe-wrap {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-md);
+  touch-action: pan-y;
+}
+
+.journal-swipe-actions {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  display: flex;
+  justify-content: flex-end;
+  align-items: stretch;
+  background: rgba(255, 77, 77, 0.12);
+}
+
+.journal-swipe-delete {
+  width: 76px;
+  min-height: 100%;
+  min-width: 48px;
+  border: none;
+  background: var(--red);
+  color: #fff;
+  font-size: 22px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.journal-swipe-delete:active {
+  filter: brightness(1.08);
+}
+
+.journal-swipe-panel {
+  position: relative;
+  z-index: 1;
+  background: var(--bg2);
+  border: 0.5px solid var(--bd);
+  border-radius: var(--radius-md);
+  will-change: transform;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.2);
+}
+
+.journal-swipe-panel-inner {
+  min-height: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .journal-swipe-panel {
+    will-change: auto;
+  }
 }
