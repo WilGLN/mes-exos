@@ -35,8 +35,13 @@ export function SessionPage() {
   const [timerEpoch, setTimerEpoch] = useState(0)
   const lastBeepSecondRef = useRef<number | null>(null)
   const lastVibrateSecondRef = useRef<number | null>(null)
+  /** Fin du repos courant (ms depuis epoch) — évite le décalage setInterval surtout sur les 5 dernières secondes. */
+  const prepDeadlineMsRef = useRef(0)
+  const audioCtxRef = useRef<AudioContext | null>(null)
 
   const session = useWorkoutSession(workoutId, prefs.repos_defaut_secondes ?? DEFAULT_REPOS_SECONDS)
+  const sessionRef = useRef(session)
+  sessionRef.current = session
   const prevSessionStateRef = useRef(session.state)
 
   useEffect(() => {
@@ -63,36 +68,53 @@ export function SessionPage() {
 
   useEffect(() => {
     if (timerEpoch <= 0) return
-    const id = window.setInterval(() => {
-      setPrepRemaining((x) => (x <= 0 ? 0 : x - 1))
-    }, 1000)
+    const tick = () => {
+      const left = Math.max(0, Math.ceil((prepDeadlineMsRef.current - Date.now()) / 1000))
+      setPrepRemaining(left)
+    }
+    tick()
+    const id = window.setInterval(tick, 200)
     return () => window.clearInterval(id)
   }, [timerEpoch])
 
   useEffect(() => {
     if (prepRemaining !== 0) return
     if (repsOpen) return
-    if (session.state === 'resting') {
-      session.skipRest()
+    const s = sessionRef.current
+    if (s.state === 'resting') {
+      s.skipRest()
     }
-  }, [prepRemaining, repsOpen, session])
-
-  useEffect(() => {
-    const enteredTransition =
-      session.state === 'exercise_transition' && prevSessionStateRef.current !== 'exercise_transition'
-    prevSessionStateRef.current = session.state
-    if (!enteredTransition || repsOpen) return
-    const sec = getRestSeconds()
-    startPrepCountdown(sec)
-  }, [session.state, repsOpen])
+  }, [prepRemaining, repsOpen])
 
   useEffect(() => {
     if (prepRemaining !== 0) return
     if (repsOpen) return
-    if (session.state === 'exercise_transition') {
-      session.nextExercise()
+    const s = sessionRef.current
+    if (s.state === 'exercise_transition') {
+      s.nextExercise()
     }
-  }, [prepRemaining, repsOpen, session])
+  }, [prepRemaining, repsOpen])
+
+  function playCountdownBeep(hz: number) {
+    try {
+      let ac = audioCtxRef.current
+      if (!ac) {
+        ac = new AudioContext()
+        audioCtxRef.current = ac
+      }
+      void ac.resume()
+      const osc = ac.createOscillator()
+      const gain = ac.createGain()
+      osc.connect(gain)
+      gain.connect(ac.destination)
+      osc.frequency.value = hz
+      gain.gain.value = 0.06
+      osc.start()
+      osc.stop(ac.currentTime + 0.09)
+    } catch {
+      /* navigateur peut bloquer l’audio hors geste utilisateur */
+    }
+  }
 
   useEffect(() => {
     if (prepRemaining > 5 || prepRemaining <= 0 || prefs.son_fin === false) {
@@ -102,33 +124,18 @@ export function SessionPage() {
     if (lastBeepSecondRef.current === prepRemaining) return
     lastBeepSecondRef.current = prepRemaining
 
-    if (typeof window !== 'undefined' && window.AudioContext) {
-      try {
-        const ctx = new AudioContext()
-        const osc = ctx.createOscillator()
-        const gain = ctx.createGain()
-        osc.connect(gain)
-        gain.connect(ctx.destination)
-        osc.frequency.value = prepRemaining === 1 ? 980 : 820
-        gain.gain.value = 0.05
-        osc.start()
-        osc.stop(ctx.currentTime + 0.08)
-      } catch {
-        // ignore audio errors
-      }
-    }
+    playCountdownBeep(prepRemaining === 1 ? 980 : 820)
   }, [prepRemaining, prefs.son_fin])
 
   useEffect(() => {
-    if (prepRemaining > 3 || prepRemaining <= 0 || prefs.vibration === false) {
-      if (prepRemaining > 3) lastVibrateSecondRef.current = null
+    if (prepRemaining > 5 || prepRemaining <= 0 || prefs.vibration === false) {
+      if (prepRemaining > 5) lastVibrateSecondRef.current = null
       return
     }
     if (lastVibrateSecondRef.current === prepRemaining) return
     lastVibrateSecondRef.current = prepRemaining
 
     if (typeof navigator !== 'undefined' && navigator.vibrate) {
-      // 3–2–1 : micro-vibrations nettes, sans être agressives
       navigator.vibrate(prepRemaining === 1 ? [70, 50, 70] : 60)
     }
   }, [prepRemaining, prefs.vibration])
@@ -136,6 +143,7 @@ export function SessionPage() {
   function stopPrepCountdown() {
     setPrepRemaining(0)
     setPrepTotalSeconds(0)
+    prepDeadlineMsRef.current = 0
     setTimerEpoch(0)
   }
 
@@ -150,14 +158,25 @@ export function SessionPage() {
     if (seconds <= 0) {
       setPrepRemaining(0)
       setPrepTotalSeconds(0)
+      prepDeadlineMsRef.current = 0
       return
     }
     lastBeepSecondRef.current = null
     lastVibrateSecondRef.current = null
     setPrepTotalSeconds(seconds)
+    prepDeadlineMsRef.current = Date.now() + seconds * 1000
     setPrepRemaining(seconds)
     setTimerEpoch((e) => e + 1)
   }
+
+  useEffect(() => {
+    const enteredTransition =
+      session.state === 'exercise_transition' && prevSessionStateRef.current !== 'exercise_transition'
+    prevSessionStateRef.current = session.state
+    if (!enteredTransition || repsOpen) return
+    const sec = getRestSeconds()
+    startPrepCountdown(sec)
+  }, [session.state, repsOpen])
 
   function onValidatePress() {
     const plannedRest = getRestSeconds()
@@ -256,7 +275,7 @@ export function SessionPage() {
             : undefined
         }
         lastPerf={lastPerfText}
-        note={session.currentExercise?.caution_note ?? 'Note courte: mouvement propre, voir le livre pour le détail.'}
+        note={session.currentExercise?.caution_note ?? '—'}
         showBookHint={session.currentExercise?.tempo_mode === 'lent' || session.currentExercise?.tempo_mode === 'special'}
         sideLabel={sideLabel}
       />
@@ -273,13 +292,29 @@ export function SessionPage() {
               {formatRest(prepRemaining)}
             </span>
           </div>
+          {prepRemaining > 0 && prepRemaining <= 5 ? (
+            <div
+              className="mono"
+              style={{
+                textAlign: 'center',
+                fontSize: 'clamp(2.75rem, 12vw, 4rem)',
+                fontWeight: 700,
+                color: 'var(--red)',
+                marginTop: 6,
+                lineHeight: 1,
+              }}
+              aria-live="polite"
+            >
+              {prepRemaining}
+            </div>
+          ) : null}
           <div style={{ marginTop: 8, height: 6, borderRadius: 999, background: 'var(--bg3)', overflow: 'hidden' }}>
             <div
               style={{
                 height: '100%',
                 width: `${Math.max(0, Math.min(100, (prepRemaining / Math.max(prepTotalSeconds || getRestSeconds(), 1)) * 100))}%`,
                 background: prepRemaining <= 5 ? 'var(--red)' : 'var(--ac)',
-                transition: 'width 1s linear',
+                transition: 'width 0.2s linear',
               }}
             />
           </div>
@@ -327,9 +362,9 @@ export function SessionPage() {
           <div className="repos-sheet-panel">
             <div className="repos-sheet-handle" aria-hidden />
             <p className="eyebrow">Note courte</p>
-            <p className="body">{session.currentExercise?.caution_note ?? 'Consignes courtes: forme propre, cadence maîtrisée.'}</p>
+            <p className="body">{session.currentExercise?.caution_note ?? '—'}</p>
             <p className="msg muted" style={{ marginTop: 8 }}>
-              {session.currentExercise?.book_reference_note ?? 'Voir le livre'}. Résumé intégré pour le suivi. Pour les détails complets d’exécution, se référer au livre.
+              {session.currentExercise?.book_reference_note ?? 'Voir le livre pour le détail d’exécution.'}
             </p>
             {prefs.afficher_criteres_passage_en_seance !== false ? (
               <p className="body muted" style={{ marginTop: 8 }}>

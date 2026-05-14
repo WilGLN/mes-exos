@@ -75,6 +75,7 @@ export function SessionCompletePage() {
     setSubmitErr(null)
     try {
       await completeWorkout(workoutId, rpe)
+      await insertSessionJournal({ workout_id: workoutId })
       await updateProgressOnComplete(workoutId)
       setSubmitting(false)
       navigate('/', { replace: true })

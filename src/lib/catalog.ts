@@ -242,19 +242,82 @@ export function resolveRestAfterSet(
   return defaultSeconds
 }
 
-export async function completeWorkout(
-  workoutId: string,
-  rpe: number | null,
-  notes: string | null,
-): Promise<{ error: Error | null }> {
-  const { data, error } = await supabase.rpc('complete_workout', {
-    p_workout_id: workoutId,
-    p_rpe: rpe,
-    p_notes: notes && notes.trim() ? notes.trim() : null,
-  })
+/** Ligne de la vue `v_workout_journal` (séances terminées). */
+export type WorkoutJournalListRow = {
+  id: string
+  day_utc: string
+  title: string | null
+  status: string
+  rpe: number | null
+  started_at: string
+  ended_at: string | null
+  duration_seconds: number | null
+  exercise_count: number | null
+  set_count: number | null
+  total_reps: number | null
+}
 
-  if (error) return { error: new Error(error.message) }
-  const row = data as { ok?: boolean; error?: string } | null
-  if (!row?.ok) return { error: new Error(row?.error ?? 'complete_workout_failed') }
-  return { error: null }
+export async function fetchWorkoutJournalList(
+  limit = 100,
+): Promise<{ data: WorkoutJournalListRow[]; error: Error | null }> {
+  const { data, error } = await supabase
+    .from('v_workout_journal')
+    .select('id, day_utc, title, status, rpe, started_at, ended_at, duration_seconds, exercise_count, set_count, total_reps')
+    .order('started_at', { ascending: false })
+    .limit(limit)
+
+  if (error) return { data: [], error: new Error(error.message) }
+  return { data: (data ?? []) as WorkoutJournalListRow[], error: null }
+}
+
+/** Entrée `session_journal` + titre séance. */
+export type SessionJournalListRow = {
+  id: string
+  workout_id: string
+  rpe: number | null
+  energy: number | null
+  sleep_quality: number | null
+  pain_notes: string | null
+  free_notes: string | null
+  created_at: string
+  workout_title: string | null
+  workout_started_at: string | null
+}
+
+export async function fetchSessionJournalWithTitles(
+  limit = 60,
+): Promise<{ data: SessionJournalListRow[]; error: Error | null }> {
+  const { data: rows, error } = await supabase
+    .from('session_journal')
+    .select('id, workout_id, rpe, energy, sleep_quality, pain_notes, free_notes, created_at')
+    .order('created_at', { ascending: false })
+    .limit(limit)
+
+  if (error) return { data: [], error: new Error(error.message) }
+  const list = rows ?? []
+  if (!list.length) return { data: [], error: null }
+
+  const ids = [...new Set(list.map((r) => r.workout_id as string))]
+  const { data: ws, error: wErr } = await supabase.from('workouts').select('id, title, started_at').in('id', ids)
+  if (wErr) return { data: [], error: new Error(wErr.message) }
+  const map = new Map((ws ?? []).map((w) => [w.id as string, w as { title: string | null; started_at: string }]))
+
+  return {
+    data: list.map((r) => {
+      const w = map.get(r.workout_id as string)
+      return {
+        id: r.id as string,
+        workout_id: r.workout_id as string,
+        rpe: r.rpe as number | null,
+        energy: r.energy as number | null,
+        sleep_quality: r.sleep_quality as number | null,
+        pain_notes: r.pain_notes as string | null,
+        free_notes: r.free_notes as string | null,
+        created_at: r.created_at as string,
+        workout_title: w?.title ?? null,
+        workout_started_at: w?.started_at ?? null,
+      }
+    }),
+    error: null,
+  }
 }

@@ -37,7 +37,23 @@ export function RepsInputSheet({ open, title, defaultValue, doneText, countdownS
         <p className="body muted" style={{ marginTop: 8 }}>
           Déjà validé: {doneText}
         </p>
-        <p className="mono" style={{ marginTop: 4, color: countdownSeconds <= 5 ? 'var(--red)' : 'var(--ac)' }}>
+        {countdownSeconds > 0 && countdownSeconds <= 5 ? (
+          <div
+            className="mono"
+            aria-live="polite"
+            style={{
+              marginTop: 10,
+              textAlign: 'center',
+              fontSize: 'clamp(2.5rem, 11vw, 3.5rem)',
+              fontWeight: 700,
+              color: 'var(--red)',
+              lineHeight: 1,
+            }}
+          >
+            {countdownSeconds}
+          </div>
+        ) : null}
+        <p className="mono" style={{ marginTop: 8, color: countdownSeconds <= 5 ? 'var(--red)' : 'var(--ac)' }}>
           Repos en cours: {formatRest(Math.max(0, countdownSeconds))}
         </p>
         <div className="repos-sheet-actions" style={{ marginTop: 12 }}>

@@ -1,67 +1,136 @@
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useAuth } from '../context/AuthContext'
+import { fetchWorkoutJournalList, type WorkoutJournalListRow } from '../lib/catalog'
+
+type Filter = '7j' | '30j' | 'all'
+
+function formatDuration(sec: number | null | undefined): string {
+  if (sec == null || sec <= 0) return '—'
+  const m = Math.floor(sec / 60)
+  const s = sec % 60
+  return m > 0 ? `${m} min${s > 0 ? ` ${s}s` : ''}` : `${s}s`
+}
+
+function dayLabel(isoDate: string): string {
+  const d = new Date(`${isoDate}T12:00:00Z`)
+  return d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'short' })
+}
+
 export function HistoryPage() {
+  const { user } = useAuth()
+  const [rows, setRows] = useState<WorkoutJournalListRow[]>([])
+  const [loading, setLoading] = useState(true)
+  const [err, setErr] = useState<string | null>(null)
+  const [filter, setFilter] = useState<Filter>('7j')
+
+  const load = useCallback(async () => {
+    if (!user?.id) {
+      setRows([])
+      setLoading(false)
+      return
+    }
+    setLoading(true)
+    setErr(null)
+    const { data, error } = await fetchWorkoutJournalList(200)
+    setLoading(false)
+    if (error) {
+      setErr(error.message)
+      setRows([])
+      return
+    }
+    setRows(data)
+  }, [user?.id])
+
+  useEffect(() => {
+    void load()
+  }, [load])
+
+  const filtered = useMemo(() => {
+    const now = Date.now()
+    const limitMs =
+      filter === '7j' ? 7 * 24 * 60 * 60 * 1000 : filter === '30j' ? 30 * 24 * 60 * 60 * 1000 : Infinity
+    return rows.filter((r) => {
+      const t = new Date(r.started_at).getTime()
+      return now - t <= limitMs
+    })
+  }, [rows, filter])
+
+  const byDay = useMemo(() => {
+    const map = new Map<string, WorkoutJournalListRow[]>()
+    for (const r of filtered) {
+      const key = r.day_utc
+      const cur = map.get(key) ?? []
+      cur.push(r)
+      map.set(key, cur)
+    }
+    return [...map.entries()].sort((a, b) => (a[0] < b[0] ? 1 : -1))
+  }, [filtered])
+
   return (
     <div className="page-pad">
-      <h1 className="h1">Journal</h1>
-      <div className="hf-row">
-        <button type="button" className="hf on">
+      <h1 className="h1">Historique</h1>
+      <p className="body muted" style={{ marginTop: 8 }}>
+        Séances terminées : volume, durée et RPE enregistré sur la séance (pas le formulaire ressenti détaillé — voir
+        l’onglet Journal).
+      </p>
+
+      <div className="hf-row" style={{ marginTop: 14 }}>
+        <button type="button" className={`hf${filter === '7j' ? ' on' : ''}`} onClick={() => setFilter('7j')}>
           7 jours
         </button>
-        <button type="button" className="hf">
-          Mois
+        <button type="button" className={`hf${filter === '30j' ? ' on' : ''}`} onClick={() => setFilter('30j')}>
+          30 jours
         </button>
-        <button type="button" className="hf">
-          Exercice
-        </button>
-        <button type="button" className="hf">
-          Programme
+        <button type="button" className={`hf${filter === 'all' ? ' on' : ''}`} onClick={() => setFilter('all')}>
+          Tout
         </button>
       </div>
 
-      <section className="hg">
-        <h2 className="hg-lbl">Aujourd&apos;hui</h2>
-        <article className="he card-flat">
-          <span className="hdot live" aria-hidden />
-          <div className="hi">
-            <h3 className="hn">Séance A — En cours</h3>
-            <p className="hm">Commencé à 09:12 · 3/6 exos</p>
-          </div>
-          <div className="hrpe">
-            <span className="hrpe-v" style={{ color: 'var(--orange)' }}>
-              ↺
-            </span>
-          </div>
-        </article>
-      </section>
+      {err ? (
+        <p className="msg msg-err" role="alert" style={{ marginTop: 16 }}>
+          {err}
+        </p>
+      ) : null}
 
-      <section className="hg">
-        <h2 className="hg-lbl">Hier · Lundi</h2>
-        <article className="he card-flat">
-          <span className="hdot" aria-hidden />
-          <div className="hi">
-            <h3 className="hn">Séance B · Poussée</h3>
-            <p className="hm">42 min · 6 exos · 24 séries</p>
-          </div>
-          <div className="hrpe">
-            <span className="hrpe-v">7</span>
-            <span className="hrpe-l">RPE</span>
-          </div>
-        </article>
-      </section>
-
-      <section className="hg">
-        <h2 className="hg-lbl">Dimanche</h2>
-        <article className="he card-flat">
-          <span className="hdot rest" aria-hidden />
-          <div className="hi">
-            <h3 className="hn">Repos</h3>
-            <p className="hm">—</p>
-          </div>
-        </article>
-      </section>
-
-      <button type="button" className="btn btn-secondary" style={{ marginTop: 8 }}>
-        Voir tout l&apos;historique
-      </button>
+      {loading ? (
+        <p className="body muted" style={{ marginTop: 20 }}>
+          Chargement…
+        </p>
+      ) : filtered.length === 0 ? (
+        <p className="body muted" style={{ marginTop: 20 }}>
+          Aucune séance terminée pour cette période. Termine une séance depuis l’accueil pour la voir ici.
+        </p>
+      ) : (
+        byDay.map(([day, sessions]) => (
+          <section key={day} className="hg">
+            <h2 className="hg-lbl">{dayLabel(day)}</h2>
+            {sessions.map((s) => (
+              <article key={s.id} className="he card-flat">
+                <span className="hdot" aria-hidden />
+                <div className="hi">
+                  <h3 className="hn">{s.title ?? 'Séance'}</h3>
+                  <p className="hm">
+                    {formatDuration(s.duration_seconds)}
+                    {s.exercise_count != null ? ` · ${s.exercise_count} ex.` : ''}
+                    {s.set_count != null ? ` · ${s.set_count} séries` : ''}
+                    {s.total_reps != null ? ` · ${s.total_reps} reps` : ''}
+                  </p>
+                </div>
+                <div className="hrpe">
+                  {s.rpe != null ? (
+                    <>
+                      <span className="hrpe-v">{s.rpe}</span>
+                      <span className="hrpe-l">RPE</span>
+                    </>
+                  ) : (
+                    <span className="hrpe-l">—</span>
+                  )}
+                </div>
+              </article>
+            ))}
+          </section>
+        ))
+      )}
     </div>
   )
 }
