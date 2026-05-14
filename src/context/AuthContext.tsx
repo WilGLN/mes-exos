@@ -36,13 +36,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     let cancelled = false
+    let timeoutId: number | undefined
 
-    supabase.auth
-      .getSession()
-      .then(({ data: { session: s } }) => {
+    const sessionPromise = supabase.auth.getSession()
+    const timeoutMs = 15000
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      timeoutId = window.setTimeout(() => reject(new Error('auth_timeout')), timeoutMs)
+    })
+
+    const clearTimer = () => {
+      if (timeoutId !== undefined) {
+        clearTimeout(timeoutId)
+        timeoutId = undefined
+      }
+    }
+
+    Promise.race([sessionPromise, timeoutPromise])
+      .then((result) => {
         if (cancelled) return
+        clearTimer()
+        const s = result.data.session
         setSession(s)
         setUser(s?.user ?? null)
+      })
+      .catch(() => {
+        if (cancelled) return
+        clearTimer()
+        setSession(null)
+        setUser(null)
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
@@ -57,6 +78,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return () => {
       cancelled = true
+      clearTimer()
       subscription.unsubscribe()
     }
   }, [])
