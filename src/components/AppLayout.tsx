@@ -55,7 +55,7 @@ export function AppLayout() {
         </button>
         <div className="app-brand app-brand--header">
           <span className="app-brand-mark" aria-hidden />
-          <span className="app-brand-text">Lafay Tracker</span>
+          <span className="app-brand-text">Entrainos Wil</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
           <button

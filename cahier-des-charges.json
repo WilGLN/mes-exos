@@ -1,6 +1,6 @@
 {
   "meta": {
-    "nom_produit": "Lafay Tracker",
+    "nom_produit": "Entrainos Wil",
     "version_document": "1.5.0",
     "date_generation": "2026-05-14",
     "langue": "fr-FR",
@@ -157,7 +157,7 @@
     "navigation": {
       "implementation_actuelle": {
         "type": "menu_hamburger_tiroir_lateral",
-        "emplacement": "Bouton trois traits en tête de barre (header), à gauche du titre « Lafay Tracker » ; panneau coulissant depuis la gauche avec liste des routes ; fermeture : bouton ✕, clic sur le fond assombri, touche Échap, ou navigation vers une route.",
+        "emplacement": "Bouton trois traits en tête de barre (header), à gauche du titre « Entrainos Wil » ; panneau coulissant depuis la gauche avec liste des routes ; fermeture : bouton ✕, clic sur le fond assombri, touche Échap, ou navigation vers une route.",
         "entrees_menu": [
           { "label": "Accueil", "path": "/" },
           { "label": "Programmes", "path": "/programs" },

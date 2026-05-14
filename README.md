@@ -1,4 +1,4 @@
-# Lafay Tracker
+# Entrainos Wil
 
 Application web **mobile-first** pour suivre une séance type méthode Lafay : catalogue de niveaux, séance guidée (séries, repos, transitions), minuterie, profil, journal de fin de séance — avec **Supabase** (auth + base + RLS).
 

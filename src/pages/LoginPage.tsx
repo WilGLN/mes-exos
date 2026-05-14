@@ -29,7 +29,7 @@ export function LoginPage() {
   return (
     <div className="auth-page">
       <div className="auth-card card">
-        <p className="eyebrow">Lafay Tracker</p>
+        <p className="eyebrow">Entrainos Wil</p>
         <h1 className="h1">Connexion</h1>
         <p className="body muted" style={{ marginTop: 8 }}>
           Accès sécurisé à ton espace d’entraînement.

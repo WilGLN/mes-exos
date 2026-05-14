@@ -29,7 +29,7 @@ export function RegisterPage() {
   return (
     <div className="auth-page">
       <div className="auth-card card">
-        <p className="eyebrow">Lafay Tracker</p>
+        <p className="eyebrow">Entrainos Wil</p>
         <h1 className="h1">Inscription</h1>
         <p className="body muted" style={{ marginTop: 8 }}>
           Crée un compte pour synchroniser tes données (à brancher sur tes tables Supabase).

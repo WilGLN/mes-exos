@@ -1,4 +1,4 @@
-# QA Device Matrix — iPhone 14+ (Lafay Tracker)
+# QA Device Matrix — iPhone 14+ (Entrainos Wil)
 
 Objectif: valider rapidement que l'UI reste lisible, tappable et stable sur iPhone récents.
 
