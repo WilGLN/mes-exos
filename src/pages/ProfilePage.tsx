@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { ProfileCollapsible } from '../components/profile/ProfileCollapsible'
+import { ProfileIconActions } from '../components/profile/ProfileIconActions'
 import { useAuth } from '../context/AuthContext'
 import {
   fetchProfileWithPreferences,
@@ -8,7 +10,13 @@ import {
   type TimerPreferences,
 } from '../lib/catalog'
 import { firstNameFromUser } from '../lib/greeting'
-import { useProfile, type BodyMeasurementRow, type EntryTestRow } from '../hooks/useProfile'
+import {
+  useProfile,
+  type BodyMeasurementInput,
+  type BodyMeasurementRow,
+  type EntryTestInput,
+  type EntryTestRow,
+} from '../hooks/useProfile'
 
 const RECO_MSG: Record<string, string> = {
   programme_1: 'Commence par le Programme 1 (p.40 du livre)',
@@ -21,6 +29,94 @@ function num(v: string): number | null {
   if (t === '') return null
   const n = Number(t)
   return Number.isFinite(n) ? n : null
+}
+
+function emptyTestForm() {
+  return {
+    tested_at: new Date().toISOString().slice(0, 10),
+    reps_a: '',
+    reps_b: '',
+    reps_c: '',
+    reps_a1: '',
+    notes: '',
+  }
+}
+
+function testRowToForm(row: EntryTestRow) {
+  return {
+    tested_at: row.tested_at,
+    reps_a: row.reps_a != null ? String(row.reps_a) : '',
+    reps_b: row.reps_b != null ? String(row.reps_b) : '',
+    reps_c: row.reps_c != null ? String(row.reps_c) : '',
+    reps_a1: row.reps_a1 != null ? String(row.reps_a1) : '',
+    notes: row.notes ?? '',
+  }
+}
+
+function emptyMeasForm() {
+  return {
+    measured_at: new Date().toISOString().slice(0, 10),
+    weight_kg: '',
+    chest_cm: '',
+    waist_cm: '',
+    hips_cm: '',
+    thigh_cm: '',
+    calf_cm: '',
+    shoulders_cm: '',
+    arm_cm: '',
+    photos_taken: false,
+    photo_date: '',
+    notes: '',
+  }
+}
+
+function measRowToForm(row: BodyMeasurementRow) {
+  return {
+    measured_at: row.measured_at,
+    weight_kg: row.weight_kg != null ? String(row.weight_kg) : '',
+    chest_cm: row.chest_cm != null ? String(row.chest_cm) : '',
+    waist_cm: row.waist_cm != null ? String(row.waist_cm) : '',
+    hips_cm: row.hips_cm != null ? String(row.hips_cm) : '',
+    thigh_cm: row.thigh_cm != null ? String(row.thigh_cm) : '',
+    calf_cm: row.calf_cm != null ? String(row.calf_cm) : '',
+    shoulders_cm: row.shoulders_cm != null ? String(row.shoulders_cm) : '',
+    arm_cm: row.arm_cm != null ? String(row.arm_cm) : '',
+    photos_taken: row.photos_taken,
+    photo_date: row.photo_date ?? '',
+    notes: row.notes ?? '',
+  }
+}
+
+function formatReps(v: number | null | undefined): string {
+  return v != null ? String(v) : '—'
+}
+
+function testFormToInput(form: ReturnType<typeof emptyTestForm>): EntryTestInput {
+  return {
+    tested_at: form.tested_at,
+    reps_a: num(form.reps_a),
+    reps_b: num(form.reps_b),
+    reps_c: num(form.reps_c),
+    reps_a1: num(form.reps_a1),
+    notes: form.notes.trim() || null,
+  }
+}
+
+function measFormToInput(form: ReturnType<typeof emptyMeasForm>): BodyMeasurementInput {
+  return {
+    measured_at: form.measured_at,
+    weight_kg: num(form.weight_kg),
+    chest_cm: num(form.chest_cm),
+    waist_cm: num(form.waist_cm),
+    hips_cm: num(form.hips_cm),
+    thigh_cm: num(form.thigh_cm),
+    calf_cm: num(form.calf_cm),
+    shoulders_cm: num(form.shoulders_cm),
+    arm_cm: num(form.arm_cm),
+    photos_taken: form.photos_taken,
+    photo_date: form.photo_date.trim() || null,
+    notes: form.notes.trim() || null,
+  }
 }
 
 function Delta({ cur, prev }: { cur: number | null | undefined; prev: number | null | undefined }) {
@@ -39,7 +135,16 @@ function Delta({ cur, prev }: { cur: number | null | undefined; prev: number | n
 export function ProfilePage() {
   const { user, signOut } = useAuth()
   const navigate = useNavigate()
-  const profileApi = useProfile()
+  const {
+    getLatestEntryTest,
+    getMeasurementsHistory,
+    addEntryTest,
+    updateEntryTest,
+    deleteEntryTest,
+    addMeasurement,
+    updateMeasurement,
+    deleteMeasurement,
+  } = useProfile()
 
   const [prefs, setPrefs] = useState<TimerPreferences>({})
   const [displayName, setDisplayName] = useState('')
@@ -48,30 +153,15 @@ export function ProfilePage() {
   const [prevMeas, setPrevMeas] = useState<BodyMeasurementRow | null>(null)
   const [hist, setHist] = useState<BodyMeasurementRow[]>([])
   const [msg, setMsg] = useState<string | null>(null)
+  const [okMsg, setOkMsg] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [testEditingId, setTestEditingId] = useState<string | null>(null)
+  const [measEditingId, setMeasEditingId] = useState<string | null>(null)
+  const [testFormOpen, setTestFormOpen] = useState(false)
+  const [measFormOpen, setMeasFormOpen] = useState(false)
 
-  const [testForm, setTestForm] = useState({
-    tested_at: new Date().toISOString().slice(0, 10),
-    reps_a: '',
-    reps_b: '',
-    reps_c: '',
-    reps_a1: '',
-    notes: '',
-  })
-  const [measForm, setMeasForm] = useState({
-    measured_at: new Date().toISOString().slice(0, 10),
-    weight_kg: '',
-    chest_cm: '',
-    waist_cm: '',
-    hips_cm: '',
-    thigh_cm: '',
-    calf_cm: '',
-    shoulders_cm: '',
-    arm_cm: '',
-    photos_taken: false,
-    photo_date: '',
-    notes: '',
-  })
+  const [testForm, setTestForm] = useState(emptyTestForm)
+  const [measForm, setMeasForm] = useState(emptyMeasForm)
 
   const reload = useCallback(async () => {
     if (!user?.id) return
@@ -79,8 +169,8 @@ export function ProfilePage() {
     try {
       const [{ data: prof }, test, measList] = await Promise.all([
         fetchProfileWithPreferences(user.id),
-        profileApi.getLatestEntryTest(user.id),
-        profileApi.getMeasurementsHistory(user.id, 6),
+        getLatestEntryTest(user.id),
+        getMeasurementsHistory(user.id, 6),
       ])
       setPrefs((prof?.preferences as TimerPreferences) ?? {})
       setDisplayName(prof?.display_name ?? firstNameFromUser(user) ?? '')
@@ -93,7 +183,7 @@ export function ProfilePage() {
     } catch (e) {
       setMsg(e instanceof Error ? e.message : 'Erreur de chargement')
     }
-  }, [user, profileApi])
+  }, [user?.id, getLatestEntryTest, getMeasurementsHistory])
 
   useEffect(() => {
     void reload()
@@ -120,26 +210,44 @@ export function ProfilePage() {
     if (error) setMsg(error.message)
   }
 
+  function cancelTestEdit() {
+    setTestEditingId(null)
+    setTestForm(emptyTestForm())
+    setTestFormOpen(false)
+    setMsg(null)
+  }
+
+  function startEditTest(row: EntryTestRow) {
+    setTestEditingId(row.id)
+    setTestForm(testRowToForm(row))
+    setTestFormOpen(true)
+    setMsg(null)
+    setOkMsg(null)
+  }
+
   async function submitTest() {
+    const input = testFormToInput(testForm)
+    if (input.reps_b == null) {
+      setMsg('Indique au minimum les reps sur B (dips) pour enregistrer le test.')
+      setOkMsg(null)
+      return
+    }
     setBusy(true)
     setMsg(null)
+    setOkMsg(null)
     try {
-      await profileApi.addEntryTest({
-        tested_at: testForm.tested_at,
-        reps_a: num(testForm.reps_a),
-        reps_b: num(testForm.reps_b),
-        reps_c: num(testForm.reps_c),
-        reps_a1: num(testForm.reps_a1),
-        notes: testForm.notes.trim() || null,
-      })
-      setTestForm({
-        tested_at: new Date().toISOString().slice(0, 10),
-        reps_a: '',
-        reps_b: '',
-        reps_c: '',
-        reps_a1: '',
-        notes: '',
-      })
+      const saved = testEditingId
+        ? await updateEntryTest(testEditingId, input)
+        : await addEntryTest(input)
+      setLatestTest(saved)
+      setOkMsg(
+        testEditingId
+          ? `Test mis à jour : A ${formatReps(saved.reps_a)} · B ${formatReps(saved.reps_b)} · C ${formatReps(saved.reps_c)} · A1 ${formatReps(saved.reps_a1)}`
+          : `Test enregistré : A ${formatReps(saved.reps_a)} · B ${formatReps(saved.reps_b)} · C ${formatReps(saved.reps_c)} · A1 ${formatReps(saved.reps_a1)}`,
+      )
+      setTestEditingId(null)
+      setTestForm(emptyTestForm())
+      setTestFormOpen(false)
       await reload()
     } catch (e) {
       setMsg(e instanceof Error ? e.message : 'Erreur')
@@ -147,38 +255,83 @@ export function ProfilePage() {
     setBusy(false)
   }
 
-  async function submitMeas() {
+  async function deleteTest(id: string) {
+    if (!window.confirm('Supprimer ce test de départ ?')) return
     setBusy(true)
     setMsg(null)
+    setOkMsg(null)
     try {
-      await profileApi.addMeasurement({
-        measured_at: measForm.measured_at,
-        weight_kg: num(measForm.weight_kg),
-        chest_cm: num(measForm.chest_cm),
-        waist_cm: num(measForm.waist_cm),
-        hips_cm: num(measForm.hips_cm),
-        thigh_cm: num(measForm.thigh_cm),
-        calf_cm: num(measForm.calf_cm),
-        shoulders_cm: num(measForm.shoulders_cm),
-        arm_cm: num(measForm.arm_cm),
-        photos_taken: measForm.photos_taken,
-        photo_date: measForm.photo_date.trim() || null,
-        notes: measForm.notes.trim() || null,
-      })
-      setMeasForm({
-        measured_at: new Date().toISOString().slice(0, 10),
-        weight_kg: '',
-        chest_cm: '',
-        waist_cm: '',
-        hips_cm: '',
-        thigh_cm: '',
-        calf_cm: '',
-        shoulders_cm: '',
-        arm_cm: '',
-        photos_taken: false,
-        photo_date: '',
-        notes: '',
-      })
+      await deleteEntryTest(id)
+      if (testEditingId === id) cancelTestEdit()
+      setOkMsg('Test supprimé.')
+      await reload()
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : 'Erreur')
+    }
+    setBusy(false)
+  }
+
+  function cancelMeasEdit() {
+    setMeasEditingId(null)
+    setMeasForm(emptyMeasForm())
+    setMeasFormOpen(false)
+    setMsg(null)
+  }
+
+  function startEditMeas(row: BodyMeasurementRow) {
+    setMeasEditingId(row.id)
+    setMeasForm(measRowToForm(row))
+    setMeasFormOpen(true)
+    setMsg(null)
+    setOkMsg(null)
+  }
+
+  async function submitMeas() {
+    const input = measFormToInput(measForm)
+    const hasValue =
+      input.weight_kg != null ||
+      input.chest_cm != null ||
+      input.waist_cm != null ||
+      input.hips_cm != null ||
+      input.thigh_cm != null ||
+      input.calf_cm != null ||
+      input.shoulders_cm != null ||
+      input.arm_cm != null
+    if (!hasValue) {
+      setMsg('Renseigne au moins une mensuration avant d’enregistrer.')
+      setOkMsg(null)
+      return
+    }
+    setBusy(true)
+    setMsg(null)
+    setOkMsg(null)
+    try {
+      if (measEditingId) {
+        await updateMeasurement(measEditingId, input)
+        setOkMsg('Mensuration mise à jour.')
+      } else {
+        await addMeasurement(input)
+        setOkMsg('Mensuration enregistrée.')
+      }
+      setMeasEditingId(null)
+      setMeasForm(emptyMeasForm())
+      setMeasFormOpen(false)
+      await reload()
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : 'Erreur')
+    }
+    setBusy(false)
+  }
+
+  async function deleteMeas(id: string) {
+    if (!window.confirm('Supprimer cette mensuration ?')) return
+    setBusy(true)
+    setMsg(null)
+    setOkMsg(null)
+    try {
+      await deleteMeasurement(id)
+      if (measEditingId === id) cancelMeasEdit()
+      setOkMsg('Mensuration supprimée.')
       await reload()
     } catch (e) {
       setMsg(e instanceof Error ? e.message : 'Erreur')
@@ -208,8 +361,13 @@ export function ProfilePage() {
         Tests de départ, mensurations et identité
       </p>
 
+      {okMsg ? (
+        <p className="msg msg-ok" style={{ marginTop: 12 }} role="status">
+          {okMsg}
+        </p>
+      ) : null}
       {msg ? (
-        <p className="msg msg-err" style={{ marginTop: 12 }}>
+        <p className="msg msg-err" style={{ marginTop: 12 }} role="alert">
           {msg}
         </p>
       ) : null}
@@ -271,12 +429,19 @@ export function ProfilePage() {
         </p>
         {latestTest ? (
           <div className="profile-last-block">
-            <p className="mono muted" style={{ fontSize: 12 }}>
-              Dernier test · {latestTest.tested_at}
-            </p>
+            <div className="profile-last-header">
+              <p className="mono muted" style={{ fontSize: 12, margin: 0 }}>
+                Dernier test · {latestTest.tested_at}
+              </p>
+              <ProfileIconActions
+                busy={busy}
+                onEdit={() => startEditTest(latestTest)}
+                onDelete={() => void deleteTest(latestTest.id)}
+              />
+            </div>
             <p className="mono" style={{ marginTop: 6 }}>
-              A {latestTest.reps_a ?? '—'} · B {latestTest.reps_b ?? '—'} · C {latestTest.reps_c ?? '—'} · A1{' '}
-              {latestTest.reps_a1 ?? '—'}
+              A {formatReps(latestTest.reps_a)} · B {formatReps(latestTest.reps_b)} · C {formatReps(latestTest.reps_c)} · A1{' '}
+              {formatReps(latestTest.reps_a1)}
             </p>
             {recoText ? <div className="profile-reco">{recoText}</div> : null}
           </div>
@@ -284,7 +449,12 @@ export function ProfilePage() {
           <p className="body muted">Aucun test enregistré.</p>
         )}
 
-        <p className="profile-label">Nouveau test</p>
+        <ProfileCollapsible
+          id="profile-new-test"
+          title={testEditingId ? 'Modifier le test' : 'Nouveau test'}
+          open={testFormOpen}
+          onToggle={() => setTestFormOpen((o) => !o)}
+        >
         <div className="profile-field-row">
           <label className="profile-sublabel" htmlFor="tdate">
             Date
@@ -323,9 +493,13 @@ export function ProfilePage() {
           Notes
         </label>
         <textarea id="tnotes" className="input" rows={2} value={testForm.notes} onChange={(e) => setTestForm((f) => ({ ...f, notes: e.target.value }))} />
-        <button type="button" className="btn btn-accent-outline" disabled={busy} onClick={() => void submitTest()}>
-          Refaire les tests
-        </button>
+        <ProfileIconActions
+          busy={busy}
+          saveLabel={testEditingId ? 'Mettre à jour le test' : 'Enregistrer le test'}
+          onSave={() => void submitTest()}
+          onCancel={testEditingId ? cancelTestEdit : undefined}
+        />
+        </ProfileCollapsible>
       </section>
 
       <section className="profile-card stack" style={{ marginTop: 16 }}>
@@ -335,9 +509,16 @@ export function ProfilePage() {
         </p>
         {latestMeas ? (
           <div className="profile-last-block">
-            <p className="mono muted" style={{ fontSize: 12 }}>
-              Dernière mensuration · {latestMeas.measured_at}
-            </p>
+            <div className="profile-last-header">
+              <p className="mono muted" style={{ fontSize: 12, margin: 0 }}>
+                Dernière mensuration · {latestMeas.measured_at}
+              </p>
+              <ProfileIconActions
+                busy={busy}
+                onEdit={() => startEditMeas(latestMeas)}
+                onDelete={() => void deleteMeas(latestMeas.id)}
+              />
+            </div>
             <ul className="profile-meas-list">
               <li>
                 Poids <span className="mono">{latestMeas.weight_kg ?? '—'}</span> kg{' '}
@@ -376,7 +557,12 @@ export function ProfilePage() {
           <p className="body muted">Aucune mensuration.</p>
         )}
 
-        <p className="profile-label">Nouvelle mensuration</p>
+        <ProfileCollapsible
+          id="profile-new-meas"
+          title={measEditingId ? 'Modifier la mensuration' : 'Nouvelle mensuration'}
+          open={measFormOpen}
+          onToggle={() => setMeasFormOpen((o) => !o)}
+        >
         <div className="profile-field-row">
           <label className="profile-sublabel" htmlFor="mdate">
             Date
@@ -447,9 +633,13 @@ export function ProfilePage() {
           Notes
         </label>
         <textarea id="mnotes" className="input" rows={2} value={measForm.notes} onChange={(e) => setMeasForm((f) => ({ ...f, notes: e.target.value }))} />
-        <button type="button" className="btn btn-accent-outline" disabled={busy} onClick={() => void submitMeas()}>
-          Nouvelle mensuration
-        </button>
+        <ProfileIconActions
+          busy={busy}
+          saveLabel={measEditingId ? 'Mettre à jour la mensuration' : 'Enregistrer la mensuration'}
+          onSave={() => void submitMeas()}
+          onCancel={measEditingId ? cancelMeasEdit : undefined}
+        />
+        </ProfileCollapsible>
 
         {hist.length ? (
           <>
@@ -458,9 +648,16 @@ export function ProfilePage() {
             </p>
             <ul className="profile-hist-compact">
               {hist.map((h) => (
-                <li key={h.id}>
-                  <span className="mono">{h.measured_at}</span>
-                  <span className="mono muted">{h.weight_kg != null ? `${h.weight_kg} kg` : '—'}</span>
+                <li key={h.id} className={measEditingId === h.id ? 'profile-hist-editing' : undefined}>
+                  <div className="profile-hist-main">
+                    <span className="mono">{h.measured_at}</span>
+                    <span className="mono muted">{h.weight_kg != null ? `${h.weight_kg} kg` : '—'}</span>
+                  </div>
+                  <ProfileIconActions
+                    busy={busy}
+                    onEdit={() => startEditMeas(h)}
+                    onDelete={() => void deleteMeas(h.id)}
+                  />
                 </li>
               ))}
             </ul>

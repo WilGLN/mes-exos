@@ -1459,6 +1459,127 @@ a.app-nav-drawer-link,
   margin-top: 8px;
 }
 
+.profile-last-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.profile-icon-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+
+.profile-last-header .profile-icon-actions {
+  margin-top: 0;
+}
+
+.profile-icon-save {
+  border-color: var(--ac);
+  color: var(--ac);
+}
+
+.profile-icon-delete {
+  border-color: rgba(255, 77, 77, 0.45);
+  color: var(--red);
+}
+
+.profile-hist-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.profile-hist-compact li {
+  align-items: center;
+  gap: 10px;
+}
+
+.profile-hist-compact li.profile-hist-editing {
+  background: rgba(232, 255, 71, 0.06);
+  margin: 0 -8px;
+  padding-left: 8px;
+  padding-right: 8px;
+  border-radius: var(--radius-sm);
+}
+
+.profile-collapse {
+  margin-top: 14px;
+  border: 0.5px solid var(--bd);
+  border-radius: var(--radius-sm);
+  background: rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+}
+
+.profile-collapse-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: 48px;
+  padding: 12px 14px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  color: var(--t0);
+}
+
+.profile-collapse-trigger:active {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.profile-collapse-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--t1);
+}
+
+.profile-collapse-chevron {
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid var(--t2);
+  border-bottom: 2px solid var(--t2);
+  transform: rotate(-45deg);
+  transition: transform 0.2s ease;
+}
+
+.profile-collapse.open .profile-collapse-chevron {
+  transform: rotate(45deg);
+}
+
+.profile-collapse-panel[hidden] {
+  display: none;
+}
+
+.profile-collapse-inner {
+  padding: 0 14px 14px;
+}
+
+.profile-collapse-inner .profile-field-row:first-child,
+.profile-collapse-inner .profile-num-wrap:first-child {
+  margin-top: 0;
+}
+
+.profile-collapse-inner .profile-icon-actions {
+  margin-top: 8px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .profile-collapse-chevron {
+    transition: none;
+  }
+}
+
 .profile-meas-list {
   list-style: none;
   padding: 0;
